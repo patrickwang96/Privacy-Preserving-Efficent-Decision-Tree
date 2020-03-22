@@ -1,13 +1,10 @@
 // #include "test_driver.h"
 
-// #include "denoising.h"
 #include "secret_sharing.h"
 #include "utils.h"
 #include "decision_tree.h"
 
 #include <chrono>
-// #include <iostream>
-// #include <fstream>
 #include <math.h>
 #include <vector>
 
@@ -45,31 +42,8 @@ void test_client(int num_trial)
 		printf("feature vector encryption (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial);
 	}
 
-	// get final class result via path cost
-	for(int i=0; i<5; ++i)
-	{
-		n = param_nd[i][0];
-		int num_leaf = pow(2, param_nd[i][1]);
 
-		ss_tuple_mz path_cost(num_leaf, 1), leaf_value(num_leaf, 1);
-		path_cost.encrypt();
-		leaf_value.encrypt();
-
-		double time_total = 0;
-		for(int j=0; j<num_trial; ++j) {
-			CLOCK_START
-			path_cost.decrypt();
-			leaf_value.decrypt();
-			CLOCK_END
-			time_total += ELAPSED;
-
-			cache_flusher();
-		}
-
-		printf("final result generation via path cost (n=%d, d=%d): %f ns\n", n, param_nd[i][1], time_total/num_trial);
-	}
-
-	// get final class result via polynomial
+	// get final class result
 	double time_total = 0;
 	mpz_class final, final_share[2];
 	for(int j=0; j<(num_trial*500); ++j) {
@@ -83,17 +57,16 @@ void test_client(int num_trial)
 		cache_flusher();
 	}
 
-	printf("final result generation via polynomial: %f ns\n", time_total/num_trial/500);
+	printf("final result generation : %f ns\n", time_total/num_trial/500);
 }
 
-void set_selection_matrix(matrix_z& sel_mat)
+void set_selection_index(matrix_z& sel_ind, int n)
 {
-	sel_mat.setZero();
-	int nrow = sel_mat.rows();
-	int ncol = sel_mat.cols();
+	sel_ind.setZero();
+	int nrow = sel_ind.rows();
 
 	for(int i=0; i<nrow; ++i)
-		sel_mat(i, rand()%ncol) = 1;
+		sel_ind(i, 0) = rand() % n;
 }
 
 void test_sp(int num_trial)
@@ -106,42 +79,45 @@ void test_sp(int num_trial)
 		n = param_nd[i][0];
 		m = pow(2, param_nd[i][1]) - 1;
 		ss_tuple_mz node(m,1);
+		ss_tuple_mz prediction_value(m+1, 1);
 
 		double time_total = 0;
 		for(int j=0; j<num_trial; ++j) {
 			CLOCK_START
 			node.encrypt();
+			prediction_value.encrypt();
 			CLOCK_END
 			time_total += ELAPSED;
 
 			node.reset();
+			prediction_value.reset();
 			cache_flusher();
 		}
 
 		printf("node encryption (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial);
 	}
 
-	// selection matrix encryption
+	// selection index encryption
 	for(int i=0; i<5; ++i)
 	{
 		n = param_nd[i][0];
 		m = pow(2, param_nd[i][1]) - 1;
-		ss_tuple_mz sel_mat(m, n);
+		ss_tuple_mz sel_ind(m, 1);
 
 		double time_total = 0;
 		for(int j=0; j<num_trial; ++j) {
-			set_selection_matrix(sel_mat.plain);
+			set_selection_index(sel_ind.plain, n);
 
 			CLOCK_START
-			sel_mat.encrypt();
+			sel_ind.encrypt();
 			CLOCK_END
 			time_total += ELAPSED;
 
-			sel_mat.reset();
+			sel_ind.reset();
 			cache_flusher();
 		}
 
-		printf("selection matrix encryption (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial);
+		printf("selection index encryption (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial);
 	}
 }
 
@@ -155,30 +131,21 @@ void test_cloud(int num_trial)
 	{
 		n = param_nd[i][0];
 		m = pow(2, param_nd[i][1]) - 1;
-		
-		ss_tuple_mz sel_mat(m, n);
 
-		sel_mat.encrypt();
+		ss_tuple_mz  sel_ind(m, 1); // I feature selection vector
+		ss_tuple_mz x(n, 1); // feature vector
 
-		ss_tuple_mz feature(n, 1);
-		feature.encrypt();
+        set_selection_index(sel_ind.plain, n);
 
-		tri_tuple_mz tri(m, n, 1);
-		tri.encrypt();
+        sel_ind.encrypt();
+        x.encrypt();
 
-		ss_tuple_mz buf_E(m, n);
-		ss_tuple_mz buf_f(n, 1);
-
-		ss_tuple_mz xsigma(m, 1);
-
+        mpz_class (*selected_feature)[2] = new mpz_class [m][2];
 		double time_total = 0;
 		for(int j=0; j<num_trial; ++j) {
 			CLOCK_START
-			secure_multiplication(sel_mat.share, feature.share, 
-						  		  tri.share,
-						  		  buf_E, buf_f, 
-						  		  xsigma.share,
-						  	      0);
+			for (int k = 0; k < m; k++)
+                secure_feature_selection_with_one_node(x.share, sel_ind.share,selected_feature[k], k);
 			CLOCK_END
 			time_total += ELAPSED;
 
@@ -186,6 +153,7 @@ void test_cloud(int num_trial)
 		}
 
 		printf("secure node selection (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial/2); // count only one party
+		delete []selected_feature;
 	}
 
 	// secure node evaluation
@@ -207,7 +175,7 @@ void test_cloud(int num_trial)
 		for(int j=0; j<num_trial; ++j) {
 			CLOCK_START
 			for(int k=0; k<m; ++k)
-				secure_node_evaluation(x[k], y[k], tri_z, tri_b);
+                secure_node_eval_with_look_ahead_carry_adder(x[k], y[k], tri_z, tri_b);
 			CLOCK_END
 			time_total += ELAPSED;
 
@@ -216,79 +184,38 @@ void test_cloud(int num_trial)
 
 		printf("secure node evaluation (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m, time_total/num_trial/2); // count only one party
 
-		// for(int j=0; j<m; ++j) {
-		// 	delete[] x[j];
-		// 	delete[] y[j];
-		// }
 		delete[] x;
 		delete[] y;
 	}
 
-	// secure class generation via path cost
-	// simulate one party since no multiplication involved
+	// secure inference generation
 	int d;
 	for(int i=0; i<5; ++i)
 	{
 		n = param_nd[i][0];
 		d = param_nd[i][1];
-		int num_edge = pow(2, d+1)-1, num_leaf = pow(2, d);
 
-		std::vector<mpz_class> edges(num_edge, 0), leaf_value(num_leaf, 0), interm_rlt(num_leaf-1, 0), path_cost(num_leaf, 0);
-		for(int j=0; j<num_edge; ++j)
-			edges[j] = gmp_prn.get_z_range(CONFIG_P);
-		for(int j=0; j<num_leaf; ++j)
-			leaf_value[j] = gmp_prn.get_z_range(CONFIG_P);
+		int num_of_edge = (1 << d) -1;
+		int num_of_leaf = num_of_edge + 1;
+
+		auto decision = new int[num_of_edge][2];
+		auto value = new mpz_class[num_of_leaf][2];
+		auto result = new mpz_class[2];
 
 		double time_total = 0;
 		for(int j=0; j<num_trial; ++j) {
 			CLOCK_START
-			secure_class_generation_path_cost(edges, leaf_value, interm_rlt, path_cost, d);
+            secure_inference_generation(decision, value, d, result, tri_b, tri_z);
 			CLOCK_END
 			time_total += ELAPSED;
 
 			cache_flusher();
 		}
 
-		printf("secure class generation via path cost (n=%d, d=%d): %f ns\n", n, d, time_total/num_trial); // one party
+		printf("secure inference generation (n=%d, d=%d): %f ns\n", n, d, time_total/num_trial); // one party
+		delete [] decision;
+		delete [] value;
+		delete [] result;
 	}
 
-	// secure class generation via polynomial
-	for(int i=0; i<5; ++i)
-	{
-		n = param_nd[i][0];
-		d = param_nd[i][1];
-		int num_edge = pow(2, d+1)-1, num_leaf = pow(2, d);
-
-		mpz_class (*edges)[2] = new mpz_class [num_edge][2], (*leaf_value)[2] = new mpz_class [num_leaf][2], (*interm_rlt)[2] = new mpz_class [num_leaf-1][2], (*path_mul)[2] = new mpz_class [num_leaf][2];
-		for(int j=0; j<num_edge; ++j) {			
-			ss_encrypt(gmp_prn.get_z_bits(CONFIG_L), edges[j]);
-		}
-
-		for(int j=0; j<num_leaf; ++j) {
-			ss_encrypt(gmp_prn.get_z_bits(CONFIG_L), leaf_value[j]);
-			if(j != (num_leaf-1)) {
-				interm_rlt[j][0] = interm_rlt[j][1] = 0;
-			}
-			path_mul[j][0] = path_mul[j][1] = 0;
-		}
-
-		triplet_z tri;
-
-		double time_total = 0;
-		for(int j=0; j<num_trial; ++j) {
-			CLOCK_START
-			secure_class_generation_polynomial(edges, leaf_value, interm_rlt, path_mul, tri, d);
-			CLOCK_END
-			time_total += ELAPSED;
-
-			cache_flusher();
-		}
-
-		delete[] edges;
-		delete[] leaf_value;
-		delete[] interm_rlt;
-		delete[] path_mul;
-
-		printf("secure class generation via polynomial (n=%d, d=%d): %f ns\n", n, d, time_total/num_trial/2);
-	}
 }

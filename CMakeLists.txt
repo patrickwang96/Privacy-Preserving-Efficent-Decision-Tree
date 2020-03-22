@@ -3,7 +3,7 @@ project(Privacy_Preserving_Efficent_Decision_Tree)
 
 set(CMAKE_CXX_STANDARD 11)
 find_library(gmp required)
-include_directories(/usr/local/include/eigen3/ /usr/local/include/)
+include_directories(/usr/local/include/eigen3/ /usr/local/include/ ../libOTe/ ../libOTe/cryptoTools)
 link_directories(/usr/local/lib/)
 
 add_executable(Decision-Tree config.cc config.h decision_tree.cc decision_tree.h main.cc
