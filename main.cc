@@ -9,17 +9,16 @@
 #include <unistd.h>
 #include <time.h>
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     srand(time(NULL));
 
-	int c;
-	opterr = 0;
+    int c;
+    opterr = 0;
 
-    // init_config();
+//     init_config();
 
-	while((c = getopt(argc, argv, "c:s:d:")) != -1) {
-		switch(c) {
+    while ((c = getopt(argc, argv, "c:s:d:")) != -1) {
+        switch (c) {
             case 'c':
                 test_client(atoi(optarg));
                 break;
@@ -29,8 +28,8 @@ int main(int argc, char **argv)
             case 'd':
                 test_cloud(atoi(optarg));
                 break;
-			default:
-				printf("Incorrect arguments!\n");
-		}
+            default:
+                printf("Incorrect arguments!\n");
+        }
     }
 }

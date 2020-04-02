@@ -50,7 +50,7 @@ void secure_mul(mpz_class as[2], mpz_class bs[2], mpz_class ab_s[2], const tripl
 //#include <cryptoTools/Common/Matrix.h>
 //#include <cryptoTools/Common/BitVector.h>
 //#include <cryptoTools/Network/Channel.h>
-
+//using namespace osuCrypto;
 void secure_feature_selection_with_one_node(const matrix_z p[2],
                                             const matrix_z feature_share[2],
                                             mpz_class selected_feature[2], int index) {
@@ -96,7 +96,7 @@ void secure_feature_selection_with_one_node(const matrix_z p[2],
 //        choices[i_origin_prime.get_ui()] = 1;
 
     // Receive the messages
-//        std::vector<block> messages(n);
+//        std::vector<block> messages(feature_count);
 //        recver.receiveChosen(choices, messages, prng, recverChl);
 
     // 6)

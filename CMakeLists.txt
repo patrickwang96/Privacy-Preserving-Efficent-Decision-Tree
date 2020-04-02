@@ -8,7 +8,7 @@ link_directories(/usr/local/lib/)
 
 add_executable(Decision-Tree config.cc config.h decision_tree.cc decision_tree.h main.cc
         secret_sharing.cc secret_sharing.h test_driver.cc
-        test_driver.h types.cc types.h utils.cc utils.h)
+        test_driver.h types.cc types.h utils.cc utils.h network.cc network.h test_cloud_client.cpp decision_tree_client.cpp decision_tree_server.cpp)
 
 target_compile_options(Decision-Tree PRIVATE "-Wall")
 TARGET_LINK_LIBRARIES(Decision-Tree pthread gmp gmpxx)
