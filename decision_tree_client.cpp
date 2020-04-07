@@ -82,18 +82,21 @@ void secure_mul_client(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
     ab_s = 1 * e * f + e * tri.gs[1] + f * tri.us[1] + tri.zs[1];
     mod_2exp(ab_s, CONFIG_L);
 }
-
+/*
 // ======= new
 //extern gmp_randclass gmp_prn;
 //#include "libOTe/Base/BaseOT.h"
 //#include "libOTe/TwoChooseOne/KosOtExtSender.h"
 //#include "libOTe/TwoChooseOne/KosOtExtReceiver.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
-//#include <cryptoTools/Common/Matrix.h>
-//#include <cryptoTools/Common/BitVector.h>
-//#include <cryptoTools/Network/Channel.h>
-//using namespace osuCrypto;
+#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
+#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
+#include <cryptoTools/Common/Matrix.h>
+#include <cryptoTools/Common/BitVector.h>
+#include <cryptoTools/Network/Channel.h>
+#include <cryptoTools/Network/IOService.h>
+
+using namespace osuCrypto;
+
 void secure_feature_selection_with_one_node_client(const matrix_z &p,
                                                    const matrix_z &feature_share,
                                                    mpz_class &selected_feature, int index, NetAdapter *net) {
@@ -133,17 +136,20 @@ void secure_feature_selection_with_one_node_client(const matrix_z &p,
 
     // 5)
     // TODO
+    IOService ios;
 //     1-n OT
-//        PRNG prng(sysRandomSeed());
-//        IknpOtExtReceiver recver;
+    PRNG prng(sysRandomSeed());
+    Channel receiverChl(ios, new SocketAdapter<NetAdapter>(*net));
+    IknpOtExtReceiver recver;
+    int num_of_ot = feature_count;
 
     // Choose which messages should be received.
-//        BitVector choices(feature_count);
-//        choices[i_origin_prime.get_ui()] = 1;
+    BitVector choices(feature_count);
+    choices[i_origin_prime.get_ui()] = 1;
 
     // Receive the messages
-//        std::vector<block> messages(feature_count);
-//        recver.receiveChosen(choices, messages, prng, recverChl);
+    std::vector<mpz_class> messages(feature_count);
+    recver.receiveChosen(choices, messages, prng, receiverChl);
 
     // 6)
     mpz_class p_selected_prime;
@@ -158,6 +164,7 @@ void secure_feature_selection_with_one_node_client(const matrix_z &p,
 //    p_selected_prime[0] = p_selected_prime[0] + p_selected_prime[1] - random[0];
 }
 
+ */
 inline void
 carry_calculation(int G_star[2], int P_star[2], int G1[2], int P1[2], int G2[2], int P2[2], const triplet_b &tri_b) {
     int gp[2], pp[2];

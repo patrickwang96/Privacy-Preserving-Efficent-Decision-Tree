@@ -36,7 +36,7 @@ void set_selection_index(matrix_z &sel_ind, int n) {
 void test_cloud_client(int num_trial) {
     // m: decision node
     int n, m;
-    NetAdapter* net = new NetAdapter(1);
+    NetAdapter* net = new NetAdapter(0);
 
     // secure input selection
     /*
@@ -82,15 +82,13 @@ void test_cloud_client(int num_trial) {
         for (int j = 0; j < m; ++j) {
             x[j] = gmp_prn.get_z_bits(CONFIG_L);
             y[j] = gmp_prn.get_z_bits(CONFIG_L);
-//            ss_encrypt(gmp_prn.get_z_bits(CONFIG_L), x[j]);
-//            ss_encrypt(gmp_prn.get_z_bits(CONFIG_L), y[j]);
         }
 
         double time_total = 0;
         for (int j = 0; j < num_trial; ++j) {
             CLOCK_START
             for (int k = 0; k < m; ++k)
-                secure_node_eval_with_look_ahead_carry_adder_client(x[k], y[k], tri_z, tri_b, net);
+                secure_node_eval_with_look_ahead_carry_adder_server(x[k], y[k], tri_z, tri_b, net);
             CLOCK_END
             time_total += ELAPSED;
 
@@ -121,7 +119,7 @@ void test_cloud_client(int num_trial) {
         double time_total = 0;
         for (int j = 0; j < num_trial; ++j) {
             CLOCK_START
-            secure_inference_generation_client(decision, value, d, result, tri_b, tri_z, net);
+            secure_inference_generation_server(decision, value, d, result, tri_b, tri_z, net);
             CLOCK_END
             time_total += ELAPSED;
 

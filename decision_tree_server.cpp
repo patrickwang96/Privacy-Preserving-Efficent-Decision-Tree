@@ -87,18 +87,19 @@ void secure_mul_server(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
     ab_s = 0 * e * f + e * tri.gs[0] + f * tri.us[0] + tri.zs[0];
     mod_2exp(ab_s, CONFIG_L);
 }
-
+/*
 // ======= new
 //extern gmp_randclass gmp_prn;
 //#include "libOTe/Base/BaseOT.h"
 //#include "libOTe/TwoChooseOne/KosOtExtSender.h"
 //#include "libOTe/TwoChooseOne/KosOtExtReceiver.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
-//#include <cryptoTools/Common/Matrix.h>
-//#include <cryptoTools/Common/BitVector.h>
-//#include <cryptoTools/Network/Channel.h>
-//using namespace osuCrypto;
+#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
+#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
+#include <cryptoTools/Common/Matrix.h>
+#include <cryptoTools/Common/BitVector.h>
+#include <cryptoTools/Network/Channel.h>
+#include <cryptoTools/Network/IOService.h>
+using namespace osuCrypto;
 void secure_feature_selection_with_one_node_server(const matrix_z &p,
                                                    const matrix_z &feature_share,
                                                    mpz_class &selected_feature, int index, NetAdapter *net) {
@@ -132,16 +133,18 @@ void secure_feature_selection_with_one_node_server(const matrix_z &p,
     // 5)
     // TODO
 //     1-n OT
-//        PRNG prng(sysRandomSeed());
-//        IknpOtExtReceiver recver;
+    IOService ios;
+    PRNG prng(sysRandomSeed());
+    Channel senderChl(ios, new SocketAdapter<NetAdapter>(*net));
+    IknpOtExtSender sender;
 
-    // Choose which messages should be received.
-//        BitVector choices(feature_count);
-//        choices[i_origin_prime.get_ui()] = 1;
+    // Choose which messages should be sent.
+    std::vector<std::array<block,2>> sendMessages(feature_count);
+    sendMessages[0] = { toBlock(54), toBlock(33) };
+    //...
 
-    // Receive the messages
-//        std::vector<block> messages(feature_count);
-//        recver.receiveChosen(choices, messages, prng, recverChl);
+    // Send the messages.
+    sender.sendChosen(p_prime, prng, senderChl);
 
     // 6)
     mpz_class p_selected_prime;
@@ -157,6 +160,7 @@ void secure_feature_selection_with_one_node_server(const matrix_z &p,
 //    p_selected_prime = p_selected_prime + p_selected_prime[1] - random[0];
 }
 
+*/
 inline void
 carry_calculation(int G_star[2], int P_star[2], int G1[2], int P1[2], int G2[2], int P2[2], const triplet_b &tri_b) {
     int gp[2], pp[2];

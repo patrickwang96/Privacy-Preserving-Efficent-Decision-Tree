@@ -7,4 +7,7 @@ void test_sp(int num_trial);
 
 void test_cloud(int num_trial);
 
+void test_cloud_client(int num_trial);
+
+void test_cloud_server(int num_trial);
 #endif
