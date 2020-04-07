@@ -3,8 +3,8 @@ project(Privacy_Preserving_Efficent_Decision_Tree)
 
 set(CMAKE_CXX_STANDARD 11)
 find_library(gmp required)
-include_directories(/usr/local/include/eigen3/ /usr/local/include/ ../libOTe/ ../libOTe/cryptoTools)
-link_directories(/usr/local/lib/)
+include_directories(/usr/include/eigen3/ /usr/local/include/ ../libOTe/ ../libOTe/cryptoTools ../libOTe/cryptoTools/thirdparty/linux/boost ../libOTe/cryptoTools/thirdparty/linux/miracl)
+link_directories(/usr/local/lib/ ../libOTe/lib/ ../libOTe/cryptoTools/thirdparty/linux/boost/stage/lib)
 
 add_executable(Decision-Tree config.cc config.h decision_tree.cc decision_tree.h main.cc
         secret_sharing.cc secret_sharing.h test_driver.cc
