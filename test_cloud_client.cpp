@@ -19,19 +19,20 @@ const int param_nd[5][2] = {{9,  8},
                             {15, 4},
                             {57, 17}};
 
-auto start = std::chrono::steady_clock::now(), end = std::chrono::steady_clock::now();
+//auto start = std::chrono::steady_clock::now(), end = std::chrono::steady_clock::now();
+extern std::chrono::steady_clock::time_point start, end;
 #define CLOCK_START {start = std::chrono::steady_clock::now();}
 #define CLOCK_END {end = std::chrono::steady_clock::now();}
 #define ELAPSED std::chrono::duration<double, std::nano>(end - start).count()
 
 
-void set_selection_index(matrix_z &sel_ind, int n) {
-    sel_ind.setZero();
-    int nrow = sel_ind.rows();
-
-    for (int i = 0; i < nrow; ++i)
-        sel_ind(i, 0) = rand() % n;
-}
+//void set_selection_index(matrix_z &sel_ind, int n) {
+//    sel_ind.setZero();
+//    int nrow = sel_ind.rows();
+//
+//    for (int i = 0; i < nrow; ++i)
+//        sel_ind(i, 0) = rand() % n;
+//}
 
 void test_cloud_client(int num_trial) {
     // m: decision node
@@ -39,7 +40,6 @@ void test_cloud_client(int num_trial) {
     NetAdapter* net = new NetAdapter(1);
 
     // secure input selection
-    /*
     for (int i = 0; i < 5; ++i) {
         n = param_nd[i][0];
         m = pow(2, param_nd[i][1]) - 1;
@@ -56,8 +56,8 @@ void test_cloud_client(int num_trial) {
         double time_total = 0;
         for (int j = 0; j < num_trial; ++j) {
             CLOCK_START
-            for (int k = 0; k < m; k++)
-                secure_feature_selection_with_one_node_client(x.share, sel_ind.share, selected_feature[k], k, net_client);
+            for (int k = 0; k < 1; k++)
+                secure_feature_selection_with_one_node_client(x.share[1], sel_ind.share[1], selected_feature[k][1], k, net);
             CLOCK_END
             time_total += ELAPSED;
 
@@ -66,9 +66,10 @@ void test_cloud_client(int num_trial) {
 
         printf("secure node selection (n=%d, d=%d, m=%d): %f ns\n", n, param_nd[i][1], m,
                time_total / num_trial / 2); // count only one party
-        delete[]selected_feature;
+//        delete[]selected_feature;
+
+        std::cout  << "delete selected feature\n";
     }
-     */
 
     // secure node evaluation
     triplet_b tri_b;
@@ -134,5 +135,6 @@ void test_cloud_client(int num_trial) {
 //        delete[] result;
     }
 
+    net->close();
 }
 

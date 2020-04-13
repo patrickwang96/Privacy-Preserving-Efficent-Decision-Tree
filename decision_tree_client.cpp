@@ -2,38 +2,32 @@
 // Created by Ruochen WANG on 1/4/2020.
 //
 
-#include "decision_tree.h"
-#include "secret_sharing.h"
-
-#include "utils.h"
-
+#include <iostream>
 #include <algorithm>
 #include <vector>
 
+#include <cryptoTools/Common/Defines.h>
+#include <cryptoTools/Network/Channel.h>
+#include <cryptoTools/Network/IOService.h>
+#include <cryptoTools/Common/Timer.h>
+#include <cryptoTools/Common/BitVector.h>
+#include <cryptoTools/Crypto/PRNG.h>
+#include "libOTe/NChooseOne/Kkrt/KkrtNcoOtSender.h"
+#include "libOTe/NChooseOne//Kkrt/KkrtNcoOtReceiver.h"
+#include "libOTe/Base/SimplestOT.h"
+
+#include "decision_tree.h"
+#include "secret_sharing.h"
+#include "utils.h"
+#include "network.h"
+
+using namespace osuCrypto;
 extern gmp_randclass gmp_prn;
-
-#define SS_DO(expr) \
-    for(int i=0; i<2; ++i) {expr}
-
-inline int bit(mpz_class n, int k) {
-    return n.get_ui() >> k & 1;
-}
-
-void secure_mul(int as[2], int bs[2], int ab_s[2], const triplet_b &tri) {
-    int e, es[2], f, fs[2];
-    SS_DO(es[i] = mod_bit(as[i] - tri.us[i]);
-                  fs[i] = mod_bit(bs[i] - tri.gs[i]);)
-
-    ss_decrypt(e, es);
-    ss_decrypt(f, fs);
-
-    SS_DO(ab_s[i] = mod_bit(i * e * f + e * tri.gs[i] + f * tri.us[i] + tri.zs[i]);)
-}
 
 void ss_decrypt_client(int &plain, int share, NetAdapter *net) {
     // client send the int share first, then the server send back;
-    net->send(reinterpret_cast<const char *>(&share), sizeof(share));
-    net->recv(reinterpret_cast<char *>(&plain), sizeof(share));
+    net->send(reinterpret_cast<unsigned char *>(&share), sizeof(share));
+    net->recv(reinterpret_cast<unsigned char *>(&plain), sizeof(share));
 //    plain = mod_bit(share[0] + share[1]);
 }
 
@@ -48,24 +42,12 @@ void secure_mul_client(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapt
     ab_s = mod_bit(1 * e * f + e * tri.gs[1] + f * tri.us[1] + tri.zs[1]);
 }
 
-void secure_mul(mpz_class as[2], mpz_class bs[2], mpz_class ab_s[2], const triplet_z &tri) {
-    mpz_class e, es[2], f, fs[2];
-    SS_DO(es[i] = as[i] - tri.us[i];
-                  mod_2exp(es[i], CONFIG_L);
-                  fs[i] = bs[i] - tri.gs[i];
-                  mod_2exp(fs[i], CONFIG_L);)
-
-    ss_decrypt(e, es);
-    ss_decrypt(f, fs);
-
-    SS_DO(ab_s[i] = i * e * f + e * tri.gs[i] + f * tri.us[i] + tri.zs[i];
-                  mod_2exp(ab_s[i], CONFIG_L);)
-}
-
 void ss_decrypt_client(mpz_class &plain, mpz_class share, NetAdapter *net) {
     // client send the int share first, then the server send back;
-    net->send(reinterpret_cast<const char *>(&share), sizeof(share));
-    net->recv(reinterpret_cast<char *>(&plain), sizeof(share));
+    send_mpz_net(share, net);
+    get_mpz_net(plain, net);
+//    net->send(reinterpret_cast<unsigned char *>(&share), sizeof(share));
+//    net->recv(reinterpret_cast<unsigned char *>(&plain), sizeof(share));
 //    plain = mod_bit(share[0] + share[1]);
 }
 
@@ -82,24 +64,10 @@ void secure_mul_client(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
     ab_s = 1 * e * f + e * tri.gs[1] + f * tri.us[1] + tri.zs[1];
     mod_2exp(ab_s, CONFIG_L);
 }
-/*
-// ======= new
-//extern gmp_randclass gmp_prn;
-//#include "libOTe/Base/BaseOT.h"
-//#include "libOTe/TwoChooseOne/KosOtExtSender.h"
-//#include "libOTe/TwoChooseOne/KosOtExtReceiver.h"
-#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
-#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
-#include <cryptoTools/Common/Matrix.h>
-#include <cryptoTools/Common/BitVector.h>
-#include <cryptoTools/Network/Channel.h>
-#include <cryptoTools/Network/IOService.h>
 
-using namespace osuCrypto;
 
-void secure_feature_selection_with_one_node_client(const matrix_z &p,
-                                                   const matrix_z &feature_share,
-                                                   mpz_class &selected_feature, int index, NetAdapter *net) {
+void secure_feature_selection_with_one_node_client(matrix_z p, matrix_z feature_share, mpz_class &selected_feature, int index, NetAdapter *net){
+
     int feature_count = p.rows();
     std::vector<mpz_class> p_prime;
     mpz_class s, r;
@@ -120,51 +88,56 @@ void secure_feature_selection_with_one_node_client(const matrix_z &p,
     // 2)
     mpz_class random;
     random = gmp_prn.get_z_bits(CONFIG_L);
-    static mpz_class i_prime = feature_share(index, 0) + random;
+    static mpz_class i_prime ; //= feature_share(index, 0) + random;
     // send i_prime to server node
-    net->send(reinterpret_cast<const char *>(&i_prime), sizeof(i_prime));
+    get_mpz_net(i_prime, net);
 
     // 3)
-    static mpz_class i_origin_with_mask; //= i_prime + feature_share(index, 0) + s[1];
-    net->recv(reinterpret_cast<char *>(&i_origin_with_mask), sizeof(i_origin_with_mask));
+    static mpz_class i_origin_with_mask = i_prime + feature_share(index, 0) + s;
+    send_mpz_net(i_origin_with_mask, net);
 
 
     // 4)
-    static mpz_class i_origin_prime = i_origin_with_mask - random[0];
-    mod_2exp(i_origin_prime, CONFIG_L);
-    i_origin_prime %= feature_count;
+//    static mpz_class i_origin_prime = i_origin_with_mask - random;
+//    mod_2exp(i_origin_prime, CONFIG_L);
+//    i_origin_prime %= feature_count;
 
     // 5)
-    // TODO
+    // client C1 acts like a sender
+    int totalOTs = feature_count;
     IOService ios;
-//     1-n OT
     PRNG prng(sysRandomSeed());
-    Channel receiverChl(ios, new SocketAdapter<NetAdapter>(*net));
-    IknpOtExtReceiver recver;
-    int num_of_ot = feature_count;
+    Channel chl(ios, new SocketAdapter<NetAdapter>(*net));
 
-    // Choose which messages should be received.
-    BitVector choices(feature_count);
-    choices[i_origin_prime.get_ui()] = 1;
+    KkrtNcoOtSender sender;
+    bool maliciousSecure = false;
+    uint64_t statSecParam = 40;
+    uint64_t inputBitCount = 128;
+    sender.configure(maliciousSecure, statSecParam, inputBitCount);
 
-    // Receive the messages
-    std::vector<mpz_class> messages(feature_count);
-    recver.receiveChosen(choices, messages, prng, receiverChl);
+    sender.genBaseOts(prng, chl);
+
+    Matrix<block> otMat(256, feature_count);
+    for (int j = 0; j < 256; j++)
+    for (int i= 0; i < feature_count; i++) {
+        otMat[j][i] = toBlock(mpz_to_u64(p_prime[i]));
+    }
+    sender.sendChosen(otMat, prng, chl);
 
     // 6)
-    mpz_class p_selected_prime;
+//    mpz_class p_selected_prime;
 
     // 7)
-    mpz_class random_prime;
-    random_prime = gmp_prn.get_z_bits(CONFIG_L);
-    p_selected_prime = p_selected_prime - random - random_prime;
-    net->send(reinterpret_cast<const char *>(&p_selected_prime), sizeof(p_selected_prime));
+//    mpz_class random_prime;
+//    random_prime = gmp_prn.get_z_bits(CONFIG_L);
+//    p_selected_prime = p_selected_prime - random - random_prime;
+//    send_mpz_net(p_selected_prime, net);
 
     // 8)
 //    p_selected_prime[0] = p_selected_prime[0] + p_selected_prime[1] - random[0];
+    std::cout << "done 1 round\n";
 }
 
- */
 inline void
 carry_calculation(int G_star[2], int P_star[2], int G1[2], int P1[2], int G2[2], int P2[2], const triplet_b &tri_b) {
     int gp[2], pp[2];
@@ -253,6 +226,7 @@ void secure_node_eval_with_look_ahead_carry_adder_client(const mpz_class x, cons
     mpz_class v;
     v = G60 + bit(delta, CONFIG_L - 1);
 
+    std::cout << "phase 2\n";
 }
 
 void secure_inference_generation_client(int decision[], mpz_class value[], int depth, mpz_class result,
@@ -323,4 +297,5 @@ void secure_inference_generation_client(int decision[], mpz_class value[], int d
     delete[] H2;
     delete[] G;
     delete[] u_stars;
+    std::cout << "phase 3\n";
 }

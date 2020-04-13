@@ -48,13 +48,15 @@ public:
 
     ~NetAdapter();
 
-    void send(const char *data, uint64_t size);
+    void send(unsigned char *data, uint64_t size);
 
-    void recv(char *data, uint64_t size);
+    void recv(unsigned char *data, uint64_t size);
 
     unsigned long long get_send_bytes();
 
     unsigned long long get_rev_bytes();
+
+    void close();
 
 };
 

@@ -8,13 +8,6 @@
 
 extern gmp_randclass gmp_prn;
 
-#define SS_DO(expr) \
-    for(int i=0; i<2; ++i) {expr}
-
-inline int bit(mpz_class n, int k) {
-    return n.get_ui() >> k & 1;
-}
-
 void secure_mul(int as[2], int bs[2], int ab_s[2], const triplet_b &tri) {
     int e, es[2], f, fs[2];
     SS_DO(es[i] = mod_bit(as[i] - tri.us[i]);
@@ -39,7 +32,6 @@ void secure_mul(mpz_class as[2], mpz_class bs[2], mpz_class ab_s[2], const tripl
     SS_DO(ab_s[i] = i * e * f + e * tri.gs[i] + f * tri.us[i] + tri.zs[i];
                   mod_2exp(ab_s[i], CONFIG_L);)
 }
-
 // ======= new
 //extern gmp_randclass gmp_prn;
 //#include "libOTe/Base/BaseOT.h"
@@ -198,7 +190,7 @@ void secure_inference_generation(int decision[][2], mpz_class value[][2], int de
     auto E_L = new int[num_of_edge][2];
     auto E_R = new int[num_of_edge][2];
 
-    for (int j = 0; j < num_of_edge; j++) {
+    for (unsigned long long j = 0; j < num_of_edge; j++) {
         E_L[j][0] = 1 - decision[j][0];
         E_L[j][1] = decision[j][1];
         SS_DO(E_R[j][i] = decision[j][i];)
@@ -206,7 +198,7 @@ void secure_inference_generation(int decision[][2], mpz_class value[][2], int de
 
     // 2)
     auto G_2 = new int[num_of_value][2];
-    int cur_node = 0;
+//    int cur_node = 0;
     for (int d = 0; d < depth; d++) {
         int num_layer_node = 1 << d;
         for (int node = 0; node < num_layer_node; node++) {

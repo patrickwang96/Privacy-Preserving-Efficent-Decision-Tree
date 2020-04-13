@@ -140,11 +140,11 @@ NetAdapter::NetAdapter(int id) {
 }
 
 NetAdapter::~NetAdapter() {
-    if (this->id == 1) client_close(this->fd);
-    else server_close(this->fd);
+//    if (this->id == 1) client_close(this->fd);
+//    else server_close(this->fd);
 }
 
-void NetAdapter::send(const char *data, uint64_t size) {
+void NetAdapter::send(unsigned char *data, uint64_t size) {
     int nwritten, totlen = 0;
     while (totlen != size) {
         nwritten = write(fd, data, size - totlen);
@@ -156,7 +156,7 @@ void NetAdapter::send(const char *data, uint64_t size) {
     }
 }
 
-void NetAdapter::recv(char *data, uint64_t size) {
+void NetAdapter::recv(unsigned char *data, uint64_t size) {
     int nread, totlen = 0;
     while (totlen != size) {
         nread = read(fd, data, size - totlen);
@@ -174,4 +174,9 @@ unsigned long long NetAdapter::get_send_bytes() {
 
 unsigned long long NetAdapter::get_rev_bytes() {
     return this->recv_bytes;
+}
+
+void NetAdapter::close() {
+    if (this->id == 1) client_close(this->fd);
+    else server_close(this->fd);
 }
