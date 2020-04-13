@@ -65,77 +65,91 @@ void secure_mul_client(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
     mod_2exp(ab_s, CONFIG_L);
 }
 
+inline void secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter* net) {
+    // 2)
+    static uint64_t i_prime;
+    get_u64_net(i_prime, net);
+    // 3)
+    static uint64_t i_origin_with_mask = i_prime + feature_share[index] + s;
+    send_u64_net(i_origin_with_mask, net);
 
-void secure_feature_selection_with_one_node_client(matrix_z p, matrix_z feature_share, mpz_class &selected_feature, int index, NetAdapter *net){
+}
+inline uint64_t secure_feature_index_sharing_server(uint64_t index,uint64_t feature_count, uint64_t random, std::vector<uint64_t> & feature_share, NetAdapter* net) {
+    // 2)
+    static uint64_t i_prime = feature_share[index] + random;
+    send_u64_net(i_prime, net);
+    // 3)
+    static uint64_t i_origin_with_mask;
+    get_u64_net(i_origin_with_mask, net);
+    // 4)
+    static uint64_t i_origin_prime = i_origin_with_mask - random;
+    i_origin_prime %= feature_count;
+    return i_origin_prime;
+}
+void secure_feature_selection_with_one_node_client(std::vector<uint64_t>& p, std::vector<uint64_t>& feature_share, uint64_t &selected_feature, int index, NetAdapter *net,KkrtNcoOtSender &sender, KkrtNcoOtReceiver & receiver,PRNG &prng, Channel &chl){
 
-    int feature_count = p.rows();
-    std::vector<mpz_class> p_prime;
-    mpz_class s, r;
+    int feature_count = p.size();
+    int m = feature_share.size();
+    std::vector<uint64_t> p_prime;
+    uint64_t s, r;
 
-    s = gmp_prn.get_z_bits(CONFIG_L);
-    r = gmp_prn.get_z_bits(CONFIG_L);
+    s = prng.get<uint64_t>();
+    r = prng.get<uint64_t>();
     p_prime.reserve(feature_count);
 
     // 1)
     for (int j = 0; j < feature_count; j++) {
-        static mpz_class j_star;
+        static uint64_t j_star;
         j_star = j + s;
-        mod_2exp(j_star, CONFIG_L);
         j_star %= feature_count;
-        p_prime[j] = p(j_star.get_ui(), 0) + r;
+        p_prime[j] = p[j_star] + r;
     }
 
-    // 2)
-    mpz_class random;
-    random = gmp_prn.get_z_bits(CONFIG_L);
-    static mpz_class i_prime ; //= feature_share(index, 0) + random;
-    // send i_prime to server node
-    get_mpz_net(i_prime, net);
+    // 2,3,4)
+    for (int i = 0; i < m; i++)
+        secure_feature_index_sharing_client(i, s, feature_share, net);
 
-    // 3)
-    static mpz_class i_origin_with_mask = i_prime + feature_share(index, 0) + s;
-    send_mpz_net(i_origin_with_mask, net);
-
-
-    // 4)
-//    static mpz_class i_origin_prime = i_origin_with_mask - random;
-//    mod_2exp(i_origin_prime, CONFIG_L);
-//    i_origin_prime %= feature_count;
 
     // 5)
     // client C1 acts like a sender
-    int totalOTs = feature_count;
-    IOService ios;
-    PRNG prng(sysRandomSeed());
-    Channel chl(ios, new SocketAdapter<NetAdapter>(*net));
-
-    KkrtNcoOtSender sender;
-    bool maliciousSecure = false;
-    uint64_t statSecParam = 40;
-    uint64_t inputBitCount = 128;
-    sender.configure(maliciousSecure, statSecParam, inputBitCount);
-
-    sender.genBaseOts(prng, chl);
-
-    Matrix<block> otMat(256, feature_count);
-    for (int j = 0; j < 256; j++)
+    Matrix<block> otMat(m, feature_count);
+    for (int j = 0; j < m; j++)
     for (int i= 0; i < feature_count; i++) {
-        otMat[j][i] = toBlock(mpz_to_u64(p_prime[i]));
+        otMat[j][i] = toBlock(p_prime[i]);
     }
     sender.sendChosen(otMat, prng, chl);
 
     // 6)
-//    mpz_class p_selected_prime;
+    uint64_t random;
+    std::vector<uint64_t> i_origin_primes(m);
+    for (int i = 0; i < m; i++) {
+        random = prng.get<uint64_t>();
+        i_origin_primes[i] = secure_feature_index_sharing_server(i, feature_count, random, feature_share, net);
+    }
+    std::vector<block> recvMsgs(m);
+    receiver.receiveChosen(feature_count, recvMsgs, i_origin_primes, prng, chl);
+
+    std::vector<uint64_t> p_prime_0(m);
+    for (int i = 0; i < m; i++) {
+        p_prime_0[i] = block_to_u64(recvMsgs[i]);
+    }
 
     // 7)
-//    mpz_class random_prime;
-//    random_prime = gmp_prn.get_z_bits(CONFIG_L);
-//    p_selected_prime = p_selected_prime - random - random_prime;
-//    send_mpz_net(p_selected_prime, net);
+    uint64_t random_prime ;
+    std::vector<uint64_t> p_stars(m);
+    for(int i = 0; i < m; i++) {
+        random_prime = prng.get<uint64_t>();
 
-    // 8)
-//    p_selected_prime[0] = p_selected_prime[0] + p_selected_prime[1] - random[0];
-    std::cout << "done 1 round\n";
+        p_stars[i] = p_prime_0[i] - r - random_prime;
+        send_u64_net(p_stars[i], net);
+    }
+
+    for (int i = 0; i < m; i++) {
+        get_u64_net(p_stars[i], net);
+        p_stars[i] += p_prime_0[i] - r;
+    }
+
+//    std::cout << "done 1 round\n";
 }
 
 inline void
@@ -226,7 +240,7 @@ void secure_node_eval_with_look_ahead_carry_adder_client(const mpz_class x, cons
     mpz_class v;
     v = G60 + bit(delta, CONFIG_L - 1);
 
-    std::cout << "phase 2\n";
+//    std::cout << "phase 2\n";
 }
 
 void secure_inference_generation_client(int decision[], mpz_class value[], int depth, mpz_class result,
@@ -297,5 +311,5 @@ void secure_inference_generation_client(int decision[], mpz_class value[], int d
     delete[] H2;
     delete[] G;
     delete[] u_stars;
-    std::cout << "phase 3\n";
+//    std::cout << "phase 3\n";
 }
