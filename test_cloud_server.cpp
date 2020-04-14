@@ -168,7 +168,7 @@ void test_cloud_server_by_parts(std::vector<int> phases, int num_trial) {
             // prepare some ot variables so that it does not delete my own NetAdapter ..
             IOService ios(10);
             PRNG prng(sysRandomSeed());
-            Session server(ios, "localhost:1221", SessionMode::Server, "");
+            Session server(ios, "172.31.31.117:1221", SessionMode::Server, "");
 //    Channel chl(ios, new SocketAdapter<NetAdapter> (*net));
             Channel chl = server.addChannel();
             KkrtNcoOtReceiver receiver;
@@ -215,8 +215,9 @@ phase1(int n, int m, NetAdapter *net, int num_trial, KkrtNcoOtSender &sender, Kk
         secure_feature_selection_with_one_node_server(x, sel_ind, selected_feature[0], 0, net, sender, receiver, prng,
                                                       chl);
         CLOCK_END
+	time_total += ELAPSED;
     }
-    time_total += ELAPSED;
+    // time_total += ELAPSED;
     send_bytes = net->get_send_bytes() - send_bytes;
     recv_bytes = net->get_rev_bytes() - recv_bytes;
     send_bytes /= num_trial;

@@ -18,8 +18,8 @@
 //#include <pthread>
 //#include <sys/time.h>
 
-#define SERV_ADDR "localhost"
-#define SERV_PORT "1245"
+#define SERV_ADDR "172.31.31.117"
+#define SERV_PORT "1222"
 #define BACKLOG 10
 #define HOST_ID 1
 
