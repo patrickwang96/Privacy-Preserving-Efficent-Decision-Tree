@@ -130,6 +130,40 @@ inline uint64_t secure_feature_index_sharing_server(uint64_t index, uint64_t fea
     return i_origin_prime;
 }
 
+void secure_feature_index_sharing_client_batch(uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net) {
+    int index_range = feature_share.size();
+    uint64_t *i_primes = new uint64_t[index_range];
+    uint64_t *i_origin_with_mask = new uint64_t[index_range];
+    net->recv(reinterpret_cast<unsigned char *>(i_primes), sizeof(uint64_t) * index_range);
+    for (int i = 0; i < index_range; i++) i_origin_with_mask[i] = i_primes[i] + feature_share[i] + s;
+    net->send(reinterpret_cast<unsigned char *>(i_origin_with_mask), sizeof(uint64_t) * index_range);
+    delete[] i_primes;
+    delete[] i_origin_with_mask;
+}
+
+void secure_feature_index_sharing_server_batch(uint64_t *i_origin, uint64_t feature_count, PRNG &prng,
+                                               std::vector<uint64_t> &feature_share,
+                                               NetAdapter *net) {
+    int index_range = feature_share.size();
+    uint64_t *i_primes = new uint64_t[index_range];
+    uint64_t *i_origin_with_mask = new uint64_t[index_range];
+    uint64_t *randoms = new uint64_t[index_range];
+    for (int i = 0; i < index_range; i++) {
+        randoms[i] = prng.get<uint64_t>();
+        i_primes[i] = feature_share[i] + randoms[i];
+    }
+    net->send(reinterpret_cast<unsigned char *> (i_primes), sizeof(uint64_t) * index_range);
+    net->recv(reinterpret_cast<unsigned char *> (i_origin_with_mask), sizeof(uint64_t) * index_range);
+
+    for (int i = 0; i < index_range; i++) {
+        i_origin[i] = i_origin_with_mask[i] - randoms[i];
+        i_origin[i] %= feature_count;
+    }
+    delete[] i_primes;
+    delete[] i_origin_with_mask;
+    delete[] randoms;
+}
+
 void secure_feature_selection_with_one_node_client(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share,
                                                    uint64_t &selected_feature, int index, NetAdapter *net,
                                                    KkrtNcoOtSender &sender, KkrtNcoOtReceiver &receiver, PRNG &prng,
@@ -153,9 +187,7 @@ void secure_feature_selection_with_one_node_client(std::vector<uint64_t> &p, std
     }
 
     // 2,3,4)
-    for (int i = 0; i < m; i++)
-        secure_feature_index_sharing_client(i, s, feature_share, net);
-
+    secure_feature_index_sharing_client_batch(s, feature_share, net);
 
     // 5)
     // client C1 acts like a sender
@@ -168,13 +200,15 @@ void secure_feature_selection_with_one_node_client(std::vector<uint64_t> &p, std
 
     // 6)
     uint64_t random;
-    std::vector<uint64_t> i_origin_primes(m);
-    for (int i = 0; i < m; i++) {
-        random = prng.get<uint64_t>();
-        i_origin_primes[i] = secure_feature_index_sharing_server(i, feature_count, random, feature_share, net);
-    }
+
+    uint64_t *i_origin_primes = new uint64_t [m];
+    secure_feature_index_sharing_server_batch(i_origin_primes, feature_count, prng, feature_share, net);
     std::vector<block> recvMsgs(m);
-    receiver.receiveChosen(feature_count, recvMsgs, i_origin_primes, prng, chl);
+    std::vector<uint64_t> choices(m);
+    for (int i = 0; i < m; i++) choices[i] = i_origin_primes[i];
+    receiver.receiveChosen(feature_count, recvMsgs, choices, prng, chl);
+
+    delete[] i_origin_primes;
 
     std::vector<uint64_t> p_prime_0(m);
     for (int i = 0; i < m; i++) {
@@ -183,16 +217,19 @@ void secure_feature_selection_with_one_node_client(std::vector<uint64_t> &p, std
 
     // 7)
     uint64_t random_prime;
-    std::vector<uint64_t> p_stars(m);
+//    std::vector<uint64_t> p_stars(m);
+    uint64_t* p_stars = new uint64_t[m];
     for (int i = 0; i < m; i++) {
         random_prime = prng.get<uint64_t>();
 
         p_stars[i] = p_prime_0[i] - r - random_prime;
-        send_u64_net(p_stars[i], net);
+//        send_u64_net(p_stars[i], net);
     }
+    net->send(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
 
+
+    net->recv(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
     for (int i = 0; i < m; i++) {
-        get_u64_net(p_stars[i], net);
         p_stars[i] += p_prime_0[i] - r;
     }
 

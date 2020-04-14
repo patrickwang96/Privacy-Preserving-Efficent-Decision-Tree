@@ -75,9 +75,10 @@ void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triple
     delete[] fs;
 }
 
-void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int * as_int = new int[m];
-    int * bs_int = new int[m];
+void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri,
+                             NetAdapter *net) {
+    int *as_int = new int[m];
+    int *bs_int = new int[m];
     int *ab_s_int = new int[m];
     for (int i = 0; i < m; i++) {
         as_int[i] = mpz_to_u64(as[i]);
@@ -89,6 +90,7 @@ void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], i
     }
 
 }
+
 void ss_decrypt_server(mpz_class &plain, mpz_class share, NetAdapter *net) {
 
     // client send the int share first, then the server send back;
@@ -138,6 +140,40 @@ secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint
 
 }
 
+void secure_feature_index_sharing_client_batch(uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net) {
+    int index_range = feature_share.size();
+    uint64_t *i_primes = new uint64_t[index_range];
+    uint64_t *i_origin_with_mask = new uint64_t[index_range];
+    net->recv(reinterpret_cast<unsigned char *>(i_primes), sizeof(uint64_t) * index_range);
+    for (int i = 0; i < index_range; i++) i_origin_with_mask[i] = i_primes[i] + feature_share[i] + s;
+    net->send(reinterpret_cast<unsigned char *>(i_origin_with_mask), sizeof(uint64_t) * index_range);
+    delete[] i_origin_with_mask;
+    delete[] i_primes;
+}
+
+void secure_feature_index_sharing_server_batch(uint64_t *i_origin, uint64_t feature_count, PRNG &prng,
+                                               std::vector<uint64_t> &feature_share,
+                                               NetAdapter *net) {
+    int index_range = feature_share.size();
+    uint64_t *i_primes = new uint64_t[index_range];
+    uint64_t *i_origin_with_mask = new uint64_t[index_range];
+    uint64_t *randoms = new uint64_t[index_range];
+    for (int i = 0; i < index_range; i++) {
+        randoms[i] = prng.get<uint64_t>();
+        i_primes[i] = feature_share[i] + randoms[i];
+    }
+    net->send(reinterpret_cast<unsigned char *> (i_primes), sizeof(uint64_t) * index_range);
+    net->recv(reinterpret_cast<unsigned char *> (i_origin_with_mask), sizeof(uint64_t) * index_range);
+
+    for (int i = 0; i < index_range; i++) {
+        i_origin[i] = i_origin_with_mask[i] - randoms[i];
+        i_origin[i] %= feature_count;
+    }
+    delete[] i_primes;
+    delete[] i_origin_with_mask;
+    delete[] randoms;
+}
+
 void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share,
                                                    uint64_t &selected_feature, int index, NetAdapter *net,
                                                    osuCrypto::KkrtNcoOtSender &sender,
@@ -164,20 +200,22 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
     // 2, 3, 4)
     uint64_t random;
 
-    std::vector<uint64_t> i_origin_primes(m);
-    for (int i = 0; i < m; i++) {
-        random = prng.get<uint64_t>();
-        i_origin_primes[i] = secure_feature_index_sharing_server(i, feature_count, random, feature_share, net);
-    }
+//    std::vector<uint64_t> i_origin_primes(m);
+    uint64_t* i_origin_primes = new uint64_t[m];
+    secure_feature_index_sharing_server_batch(i_origin_primes, feature_count, prng, feature_share, net);
 
     // 5)
 //     1-n OT receive msg input recvMsgs vector
     std::vector<block> recvMsgs(m);
-    receiver.receiveChosen(feature_count, recvMsgs, i_origin_primes, prng, chl);
+    std::vector<uint64_t> choices(m);
+    for (int i = 0; i < m; i++) choices[i] = i_origin_primes[i];
+    receiver.receiveChosen(feature_count, recvMsgs, choices, prng, chl);
 
+    delete[] i_origin_primes;
     // 6)
-    for (int i = 0; i < m; i++)
-        secure_feature_index_sharing_client(i, s, feature_share, net);
+//    for (int i = 0; i < m; i++)
+//        secure_feature_index_sharing_client(i, s, feature_share, net);
+    secure_feature_index_sharing_client_batch(s, feature_share, net);
 
     Matrix<block> otMat(m, feature_count);
     for (int j = 0; j < m; j++) {
@@ -193,9 +231,11 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
     }
 
     // 8)
-    std::vector<uint64_t> p_stars(m);
+//    std::vector<uint64_t> p_stars(m);
+    uint64_t* p_stars = new uint64_t[m];
+    net->recv(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
     for (int i = 0; i < m; i++) {
-        get_u64_net(p_stars[i], net);
+//        get_u64_net(p_stars[i], net);
         p_stars[i] += p_prime_1[i] - r;
     }
 
@@ -203,8 +243,8 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
     for (int i = 0; i < m; i++) {
         random_prime = prng.get<uint64_t>();
         p_stars[i] = p_prime_1[i] - random_prime - r;
-        send_u64_net(p_stars[i], net);
     }
+    net->send(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
 //    std::cout << "phase 1\n";
 }
 
@@ -469,7 +509,7 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
 
 
     int *G_2 = new int[num_of_value];
-    memcpy(G_2, all_nodes, sizeof(int)*num_of_value);
+    memcpy(G_2, all_nodes, sizeof(int) * num_of_value);
     delete[] all_nodes;
 
     // 3)
