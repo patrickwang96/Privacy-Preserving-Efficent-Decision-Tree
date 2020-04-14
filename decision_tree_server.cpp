@@ -75,6 +75,20 @@ void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triple
     delete[] fs;
 }
 
+void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
+    int * as_int = new int[m];
+    int * bs_int = new int[m];
+    int *ab_s_int = new int[m];
+    for (int i = 0; i < m; i++) {
+        as_int[i] = mpz_to_u64(as[i]);
+        bs_int[i] = mpz_to_u64(bs[i]);
+    }
+    secure_mul_server_batch(as_int, bs_int, ab_s_int, m, tri, net);
+    for (int i = 0; i < m; i++) {
+        ab_s[i] = ab_s_int[i];
+    }
+
+}
 void ss_decrypt_server(mpz_class &plain, mpz_class share, NetAdapter *net) {
 
     // client send the int share first, then the server send back;
@@ -427,62 +441,63 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
     unsigned long long num_of_value = num_of_node + 1;
 
     // 1)
-    auto E_L = new int[num_of_node];
-    auto E_R = new int[num_of_node];
-
-    for (int j = 0; j < num_of_node; j++) {
-        E_L[j] = 1 - decision[j];
-        E_R[j] = decision[j];
-    }
-
     // 2)
-    auto G_2 = new int[2];
-    G_2[0] = E_L[0];
-    G_2[1] = E_R[0];
-//    int cur_node = 0;
-    for (int d = 1; d < depth; d++) {
-//        int num_layer_node = (1 << d) - 1;
-        int layer_node_count = 1 << d;
-        auto cur_layer = new int[layer_node_count * 2];
-        for (int node = 0; node < layer_node_count; node++) {
-            int multiple = 0;
-            secure_mul_server(G_2[node], E_R[layer_node_count + node - 1], multiple, tri_b, net);
-            cur_layer[node * 2 + 1] = multiple;
-            secure_mul_server(G_2[node], E_L[layer_node_count + node - 1], multiple, tri_b, net);
-            cur_layer[node * 2] = multiple;
+
+    int last_layer_node_count = 1 << (depth - 1);
+    int *all_nodes = new int[last_layer_node_count * 2 * depth];
+    int cur_layer = 0;
+    for (int i = 0; i < depth; i++) {
+        for (int j = 0; j < last_layer_node_count; j++) {
+            int cur_layer = 1 << (i);
+            int ratio = last_layer_node_count / cur_layer;
+
+            all_nodes[i * 2 * last_layer_node_count + j * 2] = 1 - decision[cur_layer + j / ratio];
+            all_nodes[i * 2 * last_layer_node_count + j * 2 + 1] = decision[cur_layer + j / ratio];
         }
-        delete[] G_2;
-        G_2 = cur_layer;
+    }
+    int left_layer_count = depth / 2;
+    while (left_layer_count > 1) {
+        for (int i = 0; i < left_layer_count; i++) {
+            secure_mul_server_batch(all_nodes + i * 2 * 2 * last_layer_node_count,
+                                    all_nodes + (2 * i + 1) * 2 * last_layer_node_count,
+                                    all_nodes + i * 2 * 2 * last_layer_node_count,
+                                    last_layer_node_count * 2, tri_b, net);
+        }
+
+        left_layer_count /= 2;
     }
 
 
+    int *G_2 = new int[num_of_value];
+    memcpy(G_2, all_nodes, sizeof(int)*num_of_value);
+    delete[] all_nodes;
 
     // 3)
-    auto H1 = new mpz_class[num_of_value];
-    auto H2 = new mpz_class[num_of_value];
-    auto G = new mpz_class[num_of_value];
-    mpz_class tmp;
+    auto H1 = new int[num_of_value];
+    auto H2 = new int[num_of_value];
+    auto G = new int[num_of_value];
+    auto tmp = new int[num_of_value];
+
     for (int z = 0; z < num_of_value; z++) {
-        // a)
         H1[z] = G_2[z];
         H2[z] = 0;
-        secure_mul_server(H1[z], H2[z], tmp, tri_z, net);
+    }
+    secure_mul_server_batch(H1, H2, tmp, num_of_value, tri_b, net);
 
-        // b)
-        G[z] = H1[z] + H2[z] - 2 * tmp;
+    for (int z = 0; z < num_of_value; z++) {
+        G[z] = H1[z] + H2[z] - 2 * tmp[z];
     }
 
-
     // 4)
-    auto u_stars = new mpz_class[num_of_value];
+    auto u_stars = new int[num_of_value];
+    auto int_value = new int[num_of_value];
+//    for (int i = 0; i < num_of_value; i++) int_value[i] = mpz_to_u64(value[i]);
     result = 0;
+    secure_mul_server_batch(G, int_value, u_stars, num_of_value, tri_b, net);
     for (int z = 0; z < num_of_value; z++) {
-        secure_mul_server(G[z], value[z], u_stars[z], tri_z, net);
         result += u_stars[z];
     }
 
-    delete[] E_L;
-    delete[] E_R;
     delete[] G_2;
     delete[] H1;
     delete[] H2;
