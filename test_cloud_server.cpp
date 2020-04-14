@@ -254,8 +254,8 @@ void phase2(NetAdapter *net, int num_trial) {
 
         for (int j = 0; j < num_trial; ++j) {
             CLOCK_START
-            for (int k = 0; k < m; ++k)
-                secure_node_eval_with_look_ahead_carry_adder_server(x[k], y[k], tri_z, tri_b, net);
+//            for (int k = 0; k < m; ++k)
+                secure_node_eval_with_look_ahead_carry_adder_server(x, y, m, tri_z, tri_b, net);
             CLOCK_END
             time_total += ELAPSED;
 

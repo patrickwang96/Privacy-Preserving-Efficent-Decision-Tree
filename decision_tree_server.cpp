@@ -33,6 +33,15 @@ void ss_decrypt_server(int &plain, int share, NetAdapter *net) {
     net->send(reinterpret_cast<unsigned char *>(&plain), sizeof(plain));
 }
 
+void ss_decrypt_server_batch(int plain[], int share[], int m, NetAdapter *net) {
+    int *recv_share = new int[m];
+    net->recv(reinterpret_cast<unsigned char *> (recv_share), sizeof(int) * m);
+    for (int i = 0; i < m; i++)
+        plain[i] = mod_bit(share[i] + recv_share[i]);
+    net->send(reinterpret_cast<unsigned char *>(plain), sizeof(int) * m);
+    delete[] recv_share;
+}
+
 void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapter *net) {
     int e, es, f, fs;
     es = mod_bit(as - tri.us[0]);
@@ -44,16 +53,36 @@ void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapt
     ab_s = mod_bit(0 * e * f + e * tri.gs[0] + f * tri.us[0] + tri.zs[0]);
 }
 
+void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
+    int *e = new int[m];
+    int *es = new int[m];
+    int *f = new int[m];
+    int *fs = new int[m];
+
+    for (int i = 0; i < m; i++) {
+        es[i] = mod_bit(as[i] - tri.us[0]);
+        fs[i] = mod_bit(bs[i] - tri.gs[0]);
+    }
+    ss_decrypt_server_batch(e, es, m, net);
+    ss_decrypt_server_batch(f, fs, m, net);
+
+    for (int i = 0; i < m; i++) {
+        ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
+    }
+    delete[] e;
+    delete[] es;
+    delete[] f;
+    delete[] fs;
+}
+
 void ss_decrypt_server(mpz_class &plain, mpz_class share, NetAdapter *net) {
 
     // client send the int share first, then the server send back;
     mpz_class recv_share;
     get_mpz_net(recv_share, net);
-//    net->recv(reinterpret_cast<unsigned char *>(&recv_share), sizeof(recv_share));
     plain = share + recv_share;
     mod_2exp(plain, CONFIG_L);
     send_mpz_net(plain, net);
-//    net->send(reinterpret_cast<unsigned  char *>(&plain), sizeof(plain));
 }
 
 void secure_mul_server(mpz_class as, mpz_class bs, mpz_class &ab_s, const triplet_z &tri, NetAdapter *net) {
@@ -70,7 +99,8 @@ void secure_mul_server(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
     mod_2exp(ab_s, CONFIG_L);
 }
 
-inline uint64_t secure_feature_index_sharing_server(uint64_t index,uint64_t feature_count, uint64_t random, std::vector<uint64_t> & feature_share, NetAdapter* net) {
+inline uint64_t secure_feature_index_sharing_server(uint64_t index, uint64_t feature_count, uint64_t random,
+                                                    std::vector<uint64_t> &feature_share, NetAdapter *net) {
     // 2)
     static uint64_t i_prime = feature_share[index] + random;
     send_u64_net(i_prime, net);
@@ -82,7 +112,9 @@ inline uint64_t secure_feature_index_sharing_server(uint64_t index,uint64_t feat
     i_origin_prime %= feature_count;
     return i_origin_prime;
 }
-inline void secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter* net) {
+
+inline void
+secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net) {
     // 2)
     static uint64_t i_prime;
     get_u64_net(i_prime, net);
@@ -92,7 +124,11 @@ inline void secure_feature_index_sharing_client(uint64_t index, uint64_t s, std:
 
 }
 
-void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share, uint64_t &selected_feature, int index, NetAdapter *net, osuCrypto::KkrtNcoOtSender& sender,osuCrypto::KkrtNcoOtReceiver &receiver, osuCrypto::PRNG &prng, osuCrypto::Channel &chl) {
+void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share,
+                                                   uint64_t &selected_feature, int index, NetAdapter *net,
+                                                   osuCrypto::KkrtNcoOtSender &sender,
+                                                   osuCrypto::KkrtNcoOtReceiver &receiver, osuCrypto::PRNG &prng,
+                                                   osuCrypto::Channel &chl) {
 
     int feature_count = p.size();
     int m = feature_share.size();
@@ -151,7 +187,7 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
 
     uint64_t random_prime;
     for (int i = 0; i < m; i++) {
-        random_prime = prng.get<uint64_t> ();
+        random_prime = prng.get<uint64_t>();
         p_stars[i] = p_prime_1[i] - random_prime - r;
         send_u64_net(p_stars[i], net);
     }
@@ -177,74 +213,212 @@ carry_calculation_server(int &G_star, int &P_star, int G1, int P1, int G2, int P
     P_star = pp;
 }
 
-void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x, mpz_class y, const triplet_z &tri_z,
+void carry_calculation_server_batch(int G_star[], int P_star[], int G1[], int P1[], int G2[], int P2[], int m,
+                                    const triplet_b &tri_b, NetAdapter *net) {
+    int *gp = new int[m];
+    int *pp = new int[m];
+    secure_mul_server_batch(G2, P1, gp, m, tri_b, net);
+    secure_mul_server_batch(P1, P2, pp, m, tri_b, net);
+    for (int i = 0; i < m; i++) {
+        G_star[i] = G1[i] + gp[i];
+        P_star[i] = pp[i];
+    }
+    delete[] gp;
+    delete[] pp;
+}
+
+void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_class y[], int m, const triplet_z &tri_z,
                                                          const triplet_b &tri_b, NetAdapter *net) {
 
-    mpz_class delta;
+//    mpz_class delta;
+    std::vector<mpz_class> deltas(m);
 
     // 1) compute delta over secrete shares
-    delta = y - x;
-    mod_2exp(delta, CONFIG_L);
+//    delta = y - x;
+//    mod_2exp(delta, CONFIG_L);
+
+    for (int i = 0; i < m; i++) {
+        deltas[i] = y - x;
+        mod_2exp(deltas[i], CONFIG_L);
+    }
 
     // 3, 4) setup round for secure carry computation
-//    int (*G)[2] = new int[CONFIG_L][2];
-//    int (*P)[2] = new int[CONFIG_L][2];
-    int G[CONFIG_L], P[CONFIG_L];
-    int a_q, b_q;
-//    a_q = 0;
-    b_q = 0;
+    int *G = new int[m * CONFIG_L];
+    int *P = new int[m * CONFIG_L];
 
-    for (int i = 0; i < CONFIG_L; i++) {
-//        a_q[0] = bit(delta, i);
-        a_q = bit(delta, i);
-        secure_mul_server(a_q, b_q, G[i], tri_b, net);
-//        P[i][0] = a_q;
-        P[i] = a_q;
+    int *a_q = new int[m * CONFIG_L];
+    int *b_q = new int[m * CONFIG_L];
+    memset(b_q, 0, sizeof(int) * m * CONFIG_L);
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < CONFIG_L; j++)
+            a_q[i * CONFIG_L + j] = bit(deltas[i], j);
     }
+    secure_mul_server_batch(a_q, b_q, G, m * CONFIG_L, tri_b, net);
+    memcpy(P, a_q, sizeof(int) * m * CONFIG_L);
 
     // 5)
-    int G1[CONFIG_L / 2], P1[CONFIG_L / 2];
-    G1[0] = G[0];
-    P1[0] = P[0];
+    const int total_count = m * CONFIG_L;
+    int *G1 = new int[total_count / 2];
+    int *P1 = new int[total_count / 2];
+    for (int i = 0; i < m; i++) {
+        G1[i * CONFIG_L / 2] = G[i * CONFIG_L];
+        P1[i * CONFIG_L / 2] = P[i * CONFIG_L];
+    }
+//    int G1[CONFIG_L / 2], P1[CONFIG_L / 2];
+//    G1[0] = G[0];
+//    P1[0] = P[0];
 
     // 6) 32 round
-    for (int i = 1; i < CONFIG_L / 2; i++) {
-        carry_calculation_server(G1[i], P1[i], G[2 * i], P[2 * i], G[2 * i - 1], P[2 * i - 1], tri_b, net);
+
+    int *tmp_g1 = new int[m * CONFIG_L / 2];
+    int *tmp_g2 = new int[m * CONFIG_L / 2];
+    int *tmp_p1 = new int[m * CONFIG_L / 2];
+    int *tmp_p2 = new int[m * CONFIG_L / 2];
+    for (int i = 0; i < m; i++) {
+        for (int j = 1; j < CONFIG_L / 2; j++) {
+            tmp_g1[i * CONFIG_L / 2 + j] = G[i * CONFIG_L / 2 + 2 * j];
+            tmp_g2[i * CONFIG_L / 2 + j] = G[i * CONFIG_L / 2 + 2 * j - 1];
+            tmp_p1[i * CONFIG_L / 2 + j] = P[i * CONFIG_L / 2 + 2 * j];
+            tmp_p2[i * CONFIG_L / 2 + j] = P[i * CONFIG_L / 2 + 2 * j - 1];
+        }
     }
+    carry_calculation_server_batch(G1, P1, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 2, tri_b, net);
+
+    delete[] tmp_g1;
+    delete[] tmp_g2;
+    delete[] tmp_p1;
+    delete[] tmp_p2;
+
 
     // 7) 16 round
-    int G2[CONFIG_L / 4], P2[CONFIG_L / 4];
-    for (int i = 0; i < CONFIG_L / 4; i++) {
-        carry_calculation_server(G2[i], P2[i], G1[2 * i + 1], P1[2 * i + 1], G1[2 * i], P1[2 * i], tri_b, net);
+    int *G2 = new int[m * CONFIG_L / 4];
+    int *P2 = new int[m * CONFIG_L / 4];
+
+    tmp_g1 = new int[m * CONFIG_L / 4];
+    tmp_g2 = new int[m * CONFIG_L / 4];
+    tmp_p1 = new int[m * CONFIG_L / 4];
+    tmp_p2 = new int[m * CONFIG_L / 4];
+    for (int i = 0; i < m; i++) {
+        for (int j = 1; j < CONFIG_L / 4; j++) {
+            tmp_g1[i * CONFIG_L / 4 + j] = G1[i * CONFIG_L / 4 + 2 * j];
+            tmp_g2[i * CONFIG_L / 4 + j] = G1[i * CONFIG_L / 4 + 2 * j - 1];
+            tmp_p1[i * CONFIG_L / 4 + j] = P1[i * CONFIG_L / 4 + 2 * j];
+            tmp_p2[i * CONFIG_L / 4 + j] = P1[i * CONFIG_L / 4 + 2 * j - 1];
+        }
     }
+    carry_calculation_server_batch(G2, P2, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 4, tri_b, net);
+
+    delete[] tmp_g1;
+    delete[] tmp_g2;
+    delete[] tmp_p1;
+    delete[] tmp_p2;
+
+    delete[] G1;
+    delete[] P1;
+
 
     // 8) 8 round
-    int G3[CONFIG_L / 8], P3[CONFIG_L / 8];
-    for (int i = 0; i < CONFIG_L / 8; i++) {
-        carry_calculation_server(G3[i], P3[i], G2[2 * i + 1], P2[2 * i + 1], G2[2 * i], P2[2 * i], tri_b, net);
+    int *G3 = new int[m * CONFIG_L / 8];
+    int *P3 = new int[m * CONFIG_L / 8];
+
+    tmp_g1 = new int[m * CONFIG_L / 8];
+    tmp_g2 = new int[m * CONFIG_L / 8];
+    tmp_p1 = new int[m * CONFIG_L / 8];
+    tmp_p2 = new int[m * CONFIG_L / 8];
+    for (int i = 0; i < m; i++) {
+        for (int j = 1; j < CONFIG_L / 8; j++) {
+            tmp_g1[i * CONFIG_L / 8 + j] = G2[i * CONFIG_L / 8 + 2 * j];
+            tmp_g2[i * CONFIG_L / 8 + j] = G2[i * CONFIG_L / 8 + 2 * j - 1];
+            tmp_p1[i * CONFIG_L / 8 + j] = P2[i * CONFIG_L / 8 + 2 * j];
+            tmp_p2[i * CONFIG_L / 8 + j] = P2[i * CONFIG_L / 8 + 2 * j - 1];
+
+        }
     }
+    carry_calculation_server_batch(G3, P3, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 8, tri_b, net);
+
+    delete[] tmp_g1;
+    delete[] tmp_g2;
+    delete[] tmp_p1;
+    delete[] tmp_p2;
+
+    delete[] G2;
+    delete[] P2;
 
     // 9) 4 round
-    int G4[CONFIG_L / 16], P4[CONFIG_L / 16];
-    for (int i = 0; i < CONFIG_L / 16; i++) {
-        carry_calculation_server(G4[i], P4[i], G3[2 * i + 1], P3[2 * i + 1], G3[2 * i], P3[2 * i], tri_b, net);
+    int *G4 = new int[m * CONFIG_L / 16];
+    int *P4 = new int[m * CONFIG_L / 16];
+
+    tmp_g1 = new int[m * CONFIG_L / 16];
+    tmp_g2 = new int[m * CONFIG_L / 16];
+    tmp_p1 = new int[m * CONFIG_L / 16];
+    tmp_p2 = new int[m * CONFIG_L / 16];
+    for (int i = 0; i < m; i++) {
+        for (int j = 1; j < CONFIG_L / 16; j++) {
+            tmp_g1[i * CONFIG_L / 16 + j] = G3[i * CONFIG_L / 16 + 2 * j];
+            tmp_g2[i * CONFIG_L / 16 + j] = G3[i * CONFIG_L / 16 + 2 * j - 1];
+            tmp_p1[i * CONFIG_L / 16 + j] = P3[i * CONFIG_L / 16 + 2 * j];
+            tmp_p2[i * CONFIG_L / 16 + j] = P3[i * CONFIG_L / 16 + 2 * j - 1];
+        }
     }
+    carry_calculation_server_batch(G4, P4, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 16, tri_b, net);
+
+    delete[] tmp_g1;
+    delete[] tmp_g2;
+    delete[] tmp_p1;
+    delete[] tmp_p2;
+
+    delete[] G3;
+    delete[] P3;
 
     // 10) 2 round
-    int G5[CONFIG_L / 32], P5[CONFIG_L / 32];
-    for (int i = 0; i < CONFIG_L / 32; i++) {
-        carry_calculation_server(G5[i], P5[i], G4[2 * i + 1], P4[2 * i + 1], G4[2 * i], P4[2 * i], tri_b, net);
+    int *G5 = new int[m * CONFIG_L / 32];
+    int *P5 = new int[m * CONFIG_L / 32];
+
+    tmp_g1 = new int[m * CONFIG_L / 32];
+    tmp_g2 = new int[m * CONFIG_L / 32];
+    tmp_p1 = new int[m * CONFIG_L / 32];
+    tmp_p2 = new int[m * CONFIG_L / 32];
+    for (int i = 0; i < m; i++) {
+        for (int j = 1; j < CONFIG_L / 32; j++) {
+            tmp_g1[i * CONFIG_L / 32 + j] = G4[i * CONFIG_L / 32 + 2 * j];
+            tmp_g2[i * CONFIG_L / 32 + j] = G4[i * CONFIG_L / 32 + 2 * j - 1];
+            tmp_p1[i * CONFIG_L / 32 + j] = P4[i * CONFIG_L / 32 + 2 * j];
+            tmp_p2[i * CONFIG_L / 32 + j] = P4[i * CONFIG_L / 32 + 2 * j - 1];
+        }
     }
+    carry_calculation_server_batch(G5, P5, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 32, tri_b, net);
+
+    delete[] tmp_g1;
+    delete[] tmp_g2;
+    delete[] tmp_p1;
+    delete[] tmp_p2;
+
+    delete[] G4;
+    delete[] P4;
+
 
     // 11)
-    int G60;
-    secure_mul_server(G5[0], P5[1], G60, tri_b, net);
-    G60 += G5[1];
+    int *G60 = new int[m];
+    int *G50 = new int[m];
+    int *P51 = new int[m];
+    for (int i = 0; i < m; i++) {
+        G50[i] = G5[i * 2];
+        P51[i] = P5[i * 2 + 1];
+    }
+    secure_mul_server_batch(G50, P51, G60, m, tri_b, net);
+    for (int i = 0; i < m; i++) G60[i] += G5[i * 2 + 1];
+
+//    delete[] G60;
+    delete[] G50;
+    delete[] P51;
+    delete[] G5;
+    delete[] P5;
 
     // 12)
-    mpz_class v;
-    v = G60 + bit(delta, CONFIG_L - 1);
+    std::vector<mpz_class> v(m);
+    for (int i = 0; i < m; i++) v[i] = G60[i] + bit(deltas[i], CONFIG_L - 1);
 
+    delete[] G60;
 }
 
 void secure_inference_generation_server(int decision[], mpz_class value[], int depth, mpz_class result,

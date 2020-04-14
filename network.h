@@ -19,7 +19,7 @@
 //#include <sys/time.h>
 
 #define SERV_ADDR "localhost"
-#define SERV_PORT "1242"
+#define SERV_PORT "1245"
 #define BACKLOG 10
 #define HOST_ID 1
 

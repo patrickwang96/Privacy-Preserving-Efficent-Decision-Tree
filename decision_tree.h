@@ -23,10 +23,10 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t>& p, std
 void secure_node_eval_with_look_ahead_carry_adder(mpz_class x[2], mpz_class y[2], const triplet_z &tri_z,
                                                   const triplet_b &tri_b);
 
-void secure_node_eval_with_look_ahead_carry_adder_client(mpz_class x, mpz_class y, const triplet_z &tri_z,
+void secure_node_eval_with_look_ahead_carry_adder_client(mpz_class x[], mpz_class y[], int m, const triplet_z &tri_z,
                                                          const triplet_b &tri_b, NetAdapter *net);
 
-void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x, mpz_class y, const triplet_z &tri_z,
+void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_class y[], int m, const triplet_z &tri_z,
                                                          const triplet_b &tri_b, NetAdapter *net);
 
 void secure_inference_generation(int decision[][2], mpz_class value[][2], int depth, mpz_class result[2],
