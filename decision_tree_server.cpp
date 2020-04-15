@@ -20,7 +20,6 @@
 #include "secret_sharing.h"
 #include "utils.h"
 #include "network.h"
-#include "bit_compression.h"
 #include "secret_sharing_efficient_tools.h"
 
 using namespace osuCrypto;
@@ -133,6 +132,20 @@ void carry_calculation_server_batch(int G_star[], int P_star[], int G1[], int P1
     delete[] pp;
 }
 
+void carry_calculation_server_batch_compressed(int G_star[], int P_star[], int G1[], int P1[], int G2[], int P2[], int m,
+                                    const triplet_b &tri_b, NetAdapter *net) {
+    int *gp = new int[m];
+    int *pp = new int[m];
+    secure_mul_server_batch_compressed(G2, P1, gp, m, tri_b, net);
+    secure_mul_server_batch_compressed(P1, P2, pp, m, tri_b, net);
+    for (int i = 0; i < m; i++) {
+        G_star[i] = G1[i] + gp[i];
+        P_star[i] = pp[i];
+    }
+    delete[] gp;
+    delete[] pp;
+}
+
 void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_class y[], int m, const triplet_z &tri_z,
                                                          const triplet_b &tri_b, NetAdapter *net) {
 
@@ -159,7 +172,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
         for (int j = 0; j < CONFIG_L; j++)
             a_q[i * CONFIG_L + j] = bit(deltas[i], j);
     }
-    secure_mul_server_batch(a_q, b_q, G, m * CONFIG_L, tri_b, net);
+    secure_mul_server_batch_compressed(a_q, b_q, G, m * CONFIG_L, tri_b, net);
     memcpy(P, a_q, sizeof(int) * m * CONFIG_L);
 
     // 5)
@@ -188,7 +201,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
             tmp_p2[i * CONFIG_L / 2 + j] = P[i * CONFIG_L / 2 + 2 * j - 1];
         }
     }
-    carry_calculation_server_batch(G1, P1, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 2, tri_b, net);
+    carry_calculation_server_batch_compressed(G1, P1, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 2, tri_b, net);
 
     delete[] tmp_g1;
     delete[] tmp_g2;
@@ -212,7 +225,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
             tmp_p2[i * CONFIG_L / 4 + j] = P1[i * CONFIG_L / 4 + 2 * j - 1];
         }
     }
-    carry_calculation_server_batch(G2, P2, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 4, tri_b, net);
+    carry_calculation_server_batch_compressed(G2, P2, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 4, tri_b, net);
 
     delete[] tmp_g1;
     delete[] tmp_g2;
@@ -240,7 +253,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
 
         }
     }
-    carry_calculation_server_batch(G3, P3, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 8, tri_b, net);
+    carry_calculation_server_batch_compressed(G3, P3, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 8, tri_b, net);
 
     delete[] tmp_g1;
     delete[] tmp_g2;
@@ -266,7 +279,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
             tmp_p2[i * CONFIG_L / 16 + j] = P3[i * CONFIG_L / 16 + 2 * j - 1];
         }
     }
-    carry_calculation_server_batch(G4, P4, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 16, tri_b, net);
+    carry_calculation_server_batch_compressed(G4, P4, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 16, tri_b, net);
 
     delete[] tmp_g1;
     delete[] tmp_g2;
@@ -292,7 +305,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
             tmp_p2[i * CONFIG_L / 32 + j] = P4[i * CONFIG_L / 32 + 2 * j - 1];
         }
     }
-    carry_calculation_server_batch(G5, P5, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 32, tri_b, net);
+    carry_calculation_server_batch_compressed(G5, P5, tmp_g1, tmp_p1, tmp_g2, tmp_p2, m * CONFIG_L / 32, tri_b, net);
 
     delete[] tmp_g1;
     delete[] tmp_g2;
@@ -311,7 +324,7 @@ void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_clas
         G50[i] = G5[i * 2];
         P51[i] = P5[i * 2 + 1];
     }
-    secure_mul_server_batch(G50, P51, G60, m, tri_b, net);
+    secure_mul_server_batch_compressed(G50, P51, G60, m, tri_b, net);
     for (int i = 0; i < m; i++) G60[i] += G5[i * 2 + 1];
 
 //    delete[] G60;
@@ -350,7 +363,7 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
     int left_layer_count = depth / 2;
     while (left_layer_count > 1) {
         for (int i = 0; i < left_layer_count; i++) {
-            secure_mul_server_batch(all_nodes + i * 2 * 2 * last_layer_node_count,
+            secure_mul_server_batch_compressed(all_nodes + i * 2 * 2 * last_layer_node_count,
                                     all_nodes + (2 * i + 1) * 2 * last_layer_node_count,
                                     all_nodes + i * 2 * 2 * last_layer_node_count,
                                     last_layer_node_count * 2, tri_b, net);

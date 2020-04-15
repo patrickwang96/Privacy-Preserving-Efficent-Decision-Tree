@@ -18,10 +18,10 @@
 //#include <pthread>
 //#include <sys/time.h>
 
-#define SERV_ADDR "172.31.31.117"
+#define SERV_ADDR "localhost"
 #define SERV_PORT "1222"
+#define OT_ADDR "localhost:1221"
 #define BACKLOG 10
-#define HOST_ID 1
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)

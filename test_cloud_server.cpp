@@ -54,7 +54,7 @@ void test_cloud_server_by_parts(std::vector<int> phases, int num_trial) {
             // prepare some ot variables so that it does not delete my own NetAdapter ..
             IOService ios(10);
             PRNG prng(sysRandomSeed());
-            Session server(ios, "localhost:1221", SessionMode::Server, "");
+            Session server(ios, OT_ADDR, SessionMode::Server, "");
 //    Channel chl(ios, new SocketAdapter<NetAdapter> (*net));
             Channel chl = server.addChannel();
             KkrtNcoOtReceiver receiver;

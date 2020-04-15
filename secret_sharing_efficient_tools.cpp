@@ -25,6 +25,25 @@ void ss_decrypt_server_batch(int plain[], int share[], int m, NetAdapter *net) {
     delete[] recv_share;
 }
 
+void ss_decrypt_server_batch_compressed(int plain[], int share[], int m, NetAdapter *net) {
+    int *recv_share = new int[m];
+    int n;
+    if (m % 32 == 0) n = m / 32;
+    else n = m / 32 + 1;
+    int* zipped_recv_share = new int[n];
+    net->recv(reinterpret_cast<unsigned char *> (zipped_recv_share), sizeof(int) * n);
+    bit_decompression(zipped_recv_share, recv_share, m, n);
+    for (int i = 0; i < m; i++)
+        plain[i] = mod_bit(share[i] + recv_share[i]);
+
+    int* zipped_plain = bit_compression(plain, m, n);
+    net->send(reinterpret_cast<unsigned char *>(zipped_plain), sizeof(int) * n);
+    delete[] recv_share;
+    delete[] zipped_plain;
+    delete[] zipped_recv_share;
+
+}
+
 void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapter *net) {
     int e, es, f, fs;
     es = mod_bit(as - tri.us[0]);
@@ -48,6 +67,28 @@ void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triple
     }
     ss_decrypt_server_batch(e, es, m, net);
     ss_decrypt_server_batch(f, fs, m, net);
+
+    for (int i = 0; i < m; i++) {
+        ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
+    }
+    delete[] e;
+    delete[] es;
+    delete[] f;
+    delete[] fs;
+}
+
+void secure_mul_server_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
+    int *e = new int[m];
+    int *es = new int[m];
+    int *f = new int[m];
+    int *fs = new int[m];
+
+    for (int i = 0; i < m; i++) {
+        es[i] = mod_bit(as[i] - tri.us[0]);
+        fs[i] = mod_bit(bs[i] - tri.gs[0]);
+    }
+    ss_decrypt_server_batch_compressed(e, es, m, net);
+    ss_decrypt_server_batch_compressed(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
@@ -99,7 +140,7 @@ void secure_mul_server(mpz_class as, mpz_class bs, mpz_class &ab_s, const triple
 }
 
 uint64_t secure_feature_index_sharing_server(uint64_t index, uint64_t feature_count, uint64_t random,
-                                                    std::vector<uint64_t> &feature_share, NetAdapter *net) {
+                                             std::vector<uint64_t> &feature_share, NetAdapter *net) {
     // 2)
     static uint64_t i_prime = feature_share[index] + random;
     send_u64_net(i_prime, net);
@@ -169,6 +210,18 @@ void ss_decrypt_client_batch(int plain[], int share[], int m, NetAdapter *net) {
     net->recv(reinterpret_cast<unsigned char *>(plain), sizeof(int) * m);
 }
 
+void ss_decrypt_client_batch_compressed(int plain[], int share[], int m, NetAdapter *net) {
+    int n = m;
+    int *zipped_share = bit_compression(share, m, n);
+    int *zipped_plain = new int[n];
+    net->send(reinterpret_cast<unsigned char *>(zipped_share), sizeof(int) * n);
+
+    net->recv(reinterpret_cast<unsigned char *>(zipped_plain), sizeof(int) * n);
+    bit_decompression(zipped_plain, plain, m, n);
+    delete[] zipped_plain;
+    delete[] zipped_share;
+}
+
 void secure_mul_client(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapter *net) {
     int e, es, f, fs;
     es = mod_bit(as - tri.us[1]);
@@ -192,6 +245,28 @@ void secure_mul_client_batch(int as[], int bs[], int ab_s[], int m, const triple
     }
     ss_decrypt_client_batch(e, es, m, net);
     ss_decrypt_client_batch(f, fs, m, net);
+
+    for (int i = 0; i < m; i++) {
+        ab_s[i] = mod_bit(1 * e[i] * f[i] + e[i] * tri.gs[1] + f[i] * tri.us[1] + tri.zs[1]);
+    }
+    delete[] e;
+    delete[] es;
+    delete[] f;
+    delete[] fs;
+}
+
+void secure_mul_client_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
+    int *e = new int[m];
+    int *es = new int[m];
+    int *f = new int[m];
+    int *fs = new int[m];
+
+    for (int i = 0; i < m; i++) {
+        es[i] = mod_bit(as[i] - tri.us[1]);
+        fs[i] = mod_bit(bs[i] - tri.gs[1]);
+    }
+    ss_decrypt_client_batch_compressed(e, es, m, net);
+    ss_decrypt_client_batch_compressed(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(1 * e[i] * f[i] + e[i] * tri.gs[1] + f[i] * tri.us[1] + tri.zs[1]);

@@ -54,7 +54,7 @@ void test_cloud_client_by_parts(std::vector<int> phases, int num_trial) {
         if (phase == 1) {
             IOService ios(10);
             PRNG prng(sysRandomSeed());
-            Session client(ios, "localhost:1221", SessionMode::Client, "");
+            Session client(ios, OT_ADDR, SessionMode::Client, "");
 //    Channel chl(ios, new SocketAdapter<NetAdapter> (*net));
             Channel chl = client.addChannel();
             KkrtNcoOtSender sender;
