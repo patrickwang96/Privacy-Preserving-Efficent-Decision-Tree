@@ -57,7 +57,7 @@ uint8_t *bit_decompression(uint8_t *input, int m, int n) {
 
 int *bit_compression(int *input, int m, int &n) {
     if (m % 32 == 0) n = m / 32;
-    else n = m / 8 + 1;
+    else n = m / 32 + 1;
     int chunk_size;
 
     int *output = new int[n];
