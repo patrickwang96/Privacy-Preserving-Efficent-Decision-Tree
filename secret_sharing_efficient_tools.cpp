@@ -315,7 +315,6 @@ secure_mul_client_batch(uint64_t as[], uint64_t bs[], uint64_t ab_s[], int m, co
     delete[] fs;
 }
 
-}
 
 void secure_mul_client_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
     int *e = new int[m];
