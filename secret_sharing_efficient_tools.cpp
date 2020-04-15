@@ -27,10 +27,10 @@ void ss_decrypt_server_batch(int plain[], int share[], int m, NetAdapter *net) {
 
 void ss_decrypt_server_batch(uint64_t plain[], uint64_t share[], int m, NetAdapter *net) {
     uint64_t *recv_share = new uint64_t[m];
-    net->recv(reinterpret_cast<unsigned char *> (recv_share), sizeof(int) * m);
+    net->recv(reinterpret_cast<unsigned char *> (recv_share), sizeof(uint64_t) * m);
     for (int i = 0; i < m; i++)
         plain[i] = mod_bit(share[i] + recv_share[i]);
-    net->send(reinterpret_cast<unsigned char *>(plain), sizeof(int) * m);
+    net->send(reinterpret_cast<unsigned char *>(plain), sizeof(uint64_t) * m);
     delete[] recv_share;
 }
 
