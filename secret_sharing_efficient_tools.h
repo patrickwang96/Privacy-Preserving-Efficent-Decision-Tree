@@ -19,11 +19,16 @@ void ss_decrypt_server(int &plain, int share, NetAdapter *net);
 
 void ss_decrypt_server_batch(int plain[], int share[], int m, NetAdapter *net);
 
+void ss_decrypt_server_batch(uint64_t plain[], uint64_t share[], int m, NetAdapter *net);
+
 void ss_decrypt_server_batch_compressed(int plain[], int share[], int m, NetAdapter *net);
 
 void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapter *net);
 
 void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net);
+
+void
+secure_mul_server_batch(uint64_t as[], uint64_t bs[], uint64_t ab_s[], int m, const triplet_b &tri, NetAdapter *net);
 
 void secure_mul_server_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net);
 
@@ -54,6 +59,8 @@ void ss_decrypt_client(mpz_class &plain, mpz_class share, NetAdapter *net);
 
 void ss_decrypt_client_batch(int plain[], int share[], int m, NetAdapter *net);
 
+void ss_decrypt_client_batch(uint64_t plain[], uint64_t share[], int m, NetAdapter *net);
+
 void ss_decrypt_client_batch_compressed(int plain[], int share[], int m, NetAdapter *net);
 
 
@@ -62,6 +69,7 @@ void secure_mul_client(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapt
 void secure_mul_client(mpz_class as, mpz_class bs, mpz_class &ab_s, const triplet_z &tri, NetAdapter *net);
 
 void secure_mul_client_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net);
+void secure_mul_client_batch(uint64_t as[], uint64_t bs[], uint64_t ab_s[], int m, const triplet_b &tri, NetAdapter *net);
 
 void secure_mul_client_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net);
 

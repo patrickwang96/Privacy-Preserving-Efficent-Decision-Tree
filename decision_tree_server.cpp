@@ -378,10 +378,10 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
     delete[] all_nodes;
 
     // 3)
-    auto H1 = new int[num_of_value];
-    auto H2 = new int[num_of_value];
-    auto G = new int[num_of_value];
-    auto tmp = new int[num_of_value];
+    auto H1 = new uint64_t[num_of_value];
+    auto H2 = new uint64_t[num_of_value];
+    auto G = new uint64_t[num_of_value];
+    auto tmp = new uint64_t[num_of_value];
 
     for (int z = 0; z < num_of_value; z++) {
         H1[z] = G_2[z];
@@ -394,14 +394,16 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
     }
 
     // 4)
-    auto u_stars = new int[num_of_value];
-    auto int_value = new int[num_of_value];
+    auto u_stars = new uint64_t[num_of_value];
+    auto int_value = new uint64_t[num_of_value];
 //    for (int i = 0; i < num_of_value; i++) int_value[i] = mpz_to_u64(value[i]);
     result = 0;
+    uint64_t counter = 0;
     secure_mul_server_batch(G, int_value, u_stars, num_of_value, tri_b, net);
     for (int z = 0; z < num_of_value; z++) {
-        result += u_stars[z];
+        counter += u_stars[z];
     }
+//    result = counter;
 
     delete[] G_2;
     delete[] H1;

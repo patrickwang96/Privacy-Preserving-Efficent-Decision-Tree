@@ -113,7 +113,7 @@ phase1(int n, int m, NetAdapter *net, int num_trial, KkrtNcoOtSender &sender, Kk
     cache_flusher();
 
     printf("secure node selection (n=%d, m=%d): %f ns, send bytes: %f MB, recv bytes: %f MB\n", n, m,
-           time_total / num_trial, send_mb, recv_mb); // count only one party
+           time_total / num_trial, send_mb * 2, recv_mb); // count only one party
 
     delete[]selected_feature;
 }
@@ -158,7 +158,7 @@ void phase2(NetAdapter *net, int num_trial) {
 
         printf("secure node evaluation (n=%d, d=%d, m=%d): %f ns, send bytes: %f MB, recv bytes: %f MB\n", n,
                param_nd[i][1], m,
-               time_total / num_trial, send_mb, recv_mb); // count only one party
+               time_total / num_trial, send_mb * 2, recv_mb); // count only one party
 
         delete[] x;
         delete[] y;
@@ -206,7 +206,7 @@ void phase3(NetAdapter *net, int num_trial) {
         double recv_mb = recv_bytes / 1024.0 / 1024.0;
 
         printf("secure inference generation (n=%d, d=%d): %f ns, send bytes: %f MB, recv bytes: %f MB\n", n, d,
-               time_total / num_trial, send_mb, recv_mb); // one party
+               time_total / num_trial, send_mb * 2, recv_mb); // one party
         delete[] decision;
         delete[] value;
 //        delete[] result;

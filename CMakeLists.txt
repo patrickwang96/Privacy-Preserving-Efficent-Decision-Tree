@@ -20,7 +20,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "./build")
 #        decision_tree_server.cpp test_cloud_server.cpp client_main.cpp
 #        server_main.cpp)
 
-add_executable(test_main test_main.cpp ${NET_SRCS})
+#add_executable(test_main test_main.cpp ${NET_SRCS})
 add_executable(client ${COMMON_SRCS} ${NET_SRCS} ${CLI_SRCS})
 add_executable(server ${COMMON_SRCS} ${NET_SRCS} ${SERV_SRCS})
 
@@ -29,7 +29,7 @@ target_link_libraries(client gmp gmpxx)
 target_link_libraries(client pthread libOTe cryptoTools KyberOT boost_system boost_thread relic)
 target_link_libraries(server pthread libOTe cryptoTools KyberOT boost_system boost_thread relic)
 target_link_libraries(server gmp gmpxx)
-target_link_libraries(test_main gmp gmpxx)
+#target_link_libraries(test_main gmp gmpxx)
 
 #target_compile_options(Decision-Tree PRIVATE "-Wall")
 #TARGET_LINK_LIBRARIES(Decision-Tree pthread gmp gmpxx)
