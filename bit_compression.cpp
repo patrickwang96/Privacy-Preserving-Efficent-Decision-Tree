@@ -1,4 +1,4 @@
-#include "bit_compression.h"
+#include "secret_sharing_efficient_tools.h"
 
 inline uint8_t zip_to_one_byte(uint8_t* raw, int m) {
 	// raw has to been a array of len 8, m <= 8

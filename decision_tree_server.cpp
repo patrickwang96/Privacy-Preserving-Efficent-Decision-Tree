@@ -20,159 +20,11 @@
 #include "secret_sharing.h"
 #include "utils.h"
 #include "network.h"
+#include "bit_compression.h"
+#include "secret_sharing_efficient_tools.h"
 
 using namespace osuCrypto;
 extern gmp_randclass gmp_prn;
-
-void ss_decrypt_server(int &plain, int share, NetAdapter *net) {
-
-    // client send the int share first, then the server send back;
-    int recv_share;
-    net->recv(reinterpret_cast<unsigned char *>(&recv_share), sizeof(recv_share));
-    plain = mod_bit(share + recv_share);
-    net->send(reinterpret_cast<unsigned char *>(&plain), sizeof(plain));
-}
-
-void ss_decrypt_server_batch(int plain[], int share[], int m, NetAdapter *net) {
-    int *recv_share = new int[m];
-    net->recv(reinterpret_cast<unsigned char *> (recv_share), sizeof(int) * m);
-    for (int i = 0; i < m; i++)
-        plain[i] = mod_bit(share[i] + recv_share[i]);
-    net->send(reinterpret_cast<unsigned char *>(plain), sizeof(int) * m);
-    delete[] recv_share;
-}
-
-void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapter *net) {
-    int e, es, f, fs;
-    es = mod_bit(as - tri.us[0]);
-    fs = mod_bit(bs - tri.gs[0]);
-
-    ss_decrypt_server(e, es, net);
-    ss_decrypt_server(f, fs, net);
-
-    ab_s = mod_bit(0 * e * f + e * tri.gs[0] + f * tri.us[0] + tri.zs[0]);
-}
-
-void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int *e = new int[m];
-    int *es = new int[m];
-    int *f = new int[m];
-    int *fs = new int[m];
-
-    for (int i = 0; i < m; i++) {
-        es[i] = mod_bit(as[i] - tri.us[0]);
-        fs[i] = mod_bit(bs[i] - tri.gs[0]);
-    }
-    ss_decrypt_server_batch(e, es, m, net);
-    ss_decrypt_server_batch(f, fs, m, net);
-
-    for (int i = 0; i < m; i++) {
-        ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
-    }
-    delete[] e;
-    delete[] es;
-    delete[] f;
-    delete[] fs;
-}
-
-void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri,
-                             NetAdapter *net) {
-    int *as_int = new int[m];
-    int *bs_int = new int[m];
-    int *ab_s_int = new int[m];
-    for (int i = 0; i < m; i++) {
-        as_int[i] = mpz_to_u64(as[i]);
-        bs_int[i] = mpz_to_u64(bs[i]);
-    }
-    secure_mul_server_batch(as_int, bs_int, ab_s_int, m, tri, net);
-    for (int i = 0; i < m; i++) {
-        ab_s[i] = ab_s_int[i];
-    }
-
-}
-
-void ss_decrypt_server(mpz_class &plain, mpz_class share, NetAdapter *net) {
-
-    // client send the int share first, then the server send back;
-    mpz_class recv_share;
-    get_mpz_net(recv_share, net);
-    plain = share + recv_share;
-    mod_2exp(plain, CONFIG_L);
-    send_mpz_net(plain, net);
-}
-
-void secure_mul_server(mpz_class as, mpz_class bs, mpz_class &ab_s, const triplet_z &tri, NetAdapter *net) {
-    mpz_class e, es, f, fs;
-    es = as - tri.us[0];
-    mod_2exp(es, CONFIG_L);
-    fs = bs - tri.gs[0];
-    mod_2exp(fs, CONFIG_L);
-
-    ss_decrypt_server(e, es, net);
-    ss_decrypt_server(f, fs, net);
-
-    ab_s = 0 * e * f + e * tri.gs[0] + f * tri.us[0] + tri.zs[0];
-    mod_2exp(ab_s, CONFIG_L);
-}
-
-inline uint64_t secure_feature_index_sharing_server(uint64_t index, uint64_t feature_count, uint64_t random,
-                                                    std::vector<uint64_t> &feature_share, NetAdapter *net) {
-    // 2)
-    static uint64_t i_prime = feature_share[index] + random;
-    send_u64_net(i_prime, net);
-    // 3)
-    static uint64_t i_origin_with_mask;
-    get_u64_net(i_origin_with_mask, net);
-    // 4)
-    static uint64_t i_origin_prime = i_origin_with_mask - random;
-    i_origin_prime %= feature_count;
-    return i_origin_prime;
-}
-
-inline void
-secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net) {
-    // 2)
-    static uint64_t i_prime;
-    get_u64_net(i_prime, net);
-    // 3)
-    static uint64_t i_origin_with_mask = i_prime + feature_share[index] + s;
-    send_u64_net(i_origin_with_mask, net);
-
-}
-
-void secure_feature_index_sharing_client_batch(uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net) {
-    int index_range = feature_share.size();
-    uint64_t *i_primes = new uint64_t[index_range];
-    uint64_t *i_origin_with_mask = new uint64_t[index_range];
-    net->recv(reinterpret_cast<unsigned char *>(i_primes), sizeof(uint64_t) * index_range);
-    for (int i = 0; i < index_range; i++) i_origin_with_mask[i] = i_primes[i] + feature_share[i] + s;
-    net->send(reinterpret_cast<unsigned char *>(i_origin_with_mask), sizeof(uint64_t) * index_range);
-    delete[] i_origin_with_mask;
-    delete[] i_primes;
-}
-
-void secure_feature_index_sharing_server_batch(uint64_t *i_origin, uint64_t feature_count, PRNG &prng,
-                                               std::vector<uint64_t> &feature_share,
-                                               NetAdapter *net) {
-    int index_range = feature_share.size();
-    uint64_t *i_primes = new uint64_t[index_range];
-    uint64_t *i_origin_with_mask = new uint64_t[index_range];
-    uint64_t *randoms = new uint64_t[index_range];
-    for (int i = 0; i < index_range; i++) {
-        randoms[i] = prng.get<uint64_t>();
-        i_primes[i] = feature_share[i] + randoms[i];
-    }
-    net->send(reinterpret_cast<unsigned char *> (i_primes), sizeof(uint64_t) * index_range);
-    net->recv(reinterpret_cast<unsigned char *> (i_origin_with_mask), sizeof(uint64_t) * index_range);
-
-    for (int i = 0; i < index_range; i++) {
-        i_origin[i] = i_origin_with_mask[i] - randoms[i];
-        i_origin[i] %= feature_count;
-    }
-    delete[] i_primes;
-    delete[] i_origin_with_mask;
-    delete[] randoms;
-}
 
 void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share,
                                                    uint64_t &selected_feature, int index, NetAdapter *net,
@@ -201,7 +53,7 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
     uint64_t random;
 
 //    std::vector<uint64_t> i_origin_primes(m);
-    uint64_t* i_origin_primes = new uint64_t[m];
+    uint64_t *i_origin_primes = new uint64_t[m];
     secure_feature_index_sharing_server_batch(i_origin_primes, feature_count, prng, feature_share, net);
 
     // 5)
@@ -232,8 +84,8 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
 
     // 8)
 //    std::vector<uint64_t> p_stars(m);
-    uint64_t* p_stars = new uint64_t[m];
-    net->recv(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
+    uint64_t *p_stars = new uint64_t[m];
+    net->recv(reinterpret_cast<unsigned char *>(p_stars), sizeof(uint64_t) * m);
     for (int i = 0; i < m; i++) {
 //        get_u64_net(p_stars[i], net);
         p_stars[i] += p_prime_1[i] - r;
@@ -244,7 +96,7 @@ void secure_feature_selection_with_one_node_server(std::vector<uint64_t> &p, std
         random_prime = prng.get<uint64_t>();
         p_stars[i] = p_prime_1[i] - random_prime - r;
     }
-    net->send(reinterpret_cast<unsigned char*>(p_stars), sizeof(uint64_t) * m);
+    net->send(reinterpret_cast<unsigned char *>(p_stars), sizeof(uint64_t) * m);
 //    std::cout << "phase 1\n";
 }
 
