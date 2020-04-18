@@ -65,70 +65,64 @@ void secure_mul_server(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapt
 }
 
 void secure_mul_server_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int *e = new int[m];
-    int *es = new int[m];
-    int *f = new int[m];
-    int *fs = new int[m];
+    int *e = new int[m * 2];
+    int *es = new int[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[0]);
         fs[i] = mod_bit(bs[i] - tri.gs[0]);
     }
-    ss_decrypt_server_batch(e, es, m, net);
-    ss_decrypt_server_batch(f, fs, m, net);
+    ss_decrypt_server_batch(e, es, m * 2, net);
+//    ss_decrypt_server_batch(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 void
 secure_mul_server_batch(uint64_t as[], uint64_t bs[], uint64_t ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    auto *e = new uint64_t[m];
-    auto *es = new uint64_t[m];
-    auto *f = new uint64_t[m];
-    auto *fs = new uint64_t[m];
+    auto *e = new uint64_t[m * 2];
+    auto *es = new uint64_t[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[0]);
         fs[i] = mod_bit(bs[i] - tri.gs[0]);
     }
-    ss_decrypt_server_batch(e, es, m, net);
-    ss_decrypt_server_batch(f, fs, m, net);
+    ss_decrypt_server_batch(e, es, m * 2, net);
+//    ss_decrypt_server_batch(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 void secure_mul_server_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int *e = new int[m];
-    int *es = new int[m];
-    int *f = new int[m];
-    int *fs = new int[m];
+    int *e = new int[m * 2];
+    int *es = new int[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[0]);
         fs[i] = mod_bit(bs[i] - tri.gs[0]);
     }
-    ss_decrypt_server_batch_compressed(e, es, m, net);
-    ss_decrypt_server_batch_compressed(f, fs, m, net);
+    ss_decrypt_server_batch_compressed(e, es, m * 2, net);
+//    ss_decrypt_server_batch_compressed(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(0 * e[i] * f[i] + e[i] * tri.gs[0] + f[i] * tri.us[0] + tri.zs[0]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 void secure_mul_server_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri,
@@ -271,71 +265,65 @@ void secure_mul_client(int as, int bs, int &ab_s, const triplet_b &tri, NetAdapt
 }
 
 void secure_mul_client_batch(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int *e = new int[m];
-    int *es = new int[m];
-    int *f = new int[m];
-    int *fs = new int[m];
+    int *e = new int[m * 2];
+    int *es = new int[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[1]);
         fs[i] = mod_bit(bs[i] - tri.gs[1]);
     }
-    ss_decrypt_client_batch(e, es, m, net);
-    ss_decrypt_client_batch(f, fs, m, net);
+    ss_decrypt_client_batch(e, es, m * 2, net);
+//    ss_decrypt_client_batch(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(1 * e[i] * f[i] + e[i] * tri.gs[1] + f[i] * tri.us[1] + tri.zs[1]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 void
 secure_mul_client_batch(uint64_t as[], uint64_t bs[], uint64_t ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    auto *e = new uint64_t[m];
-    auto *es = new uint64_t[m];
-    auto *f = new uint64_t[m];
-    auto *fs = new uint64_t[m];
+    auto *e = new uint64_t[m * 2];
+    auto *es = new uint64_t[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[1]);
         fs[i] = mod_bit(bs[i] - tri.gs[1]);
     }
-    ss_decrypt_client_batch(e, es, m, net);
-    ss_decrypt_client_batch(f, fs, m, net);
+    ss_decrypt_client_batch(e, es, m * 2, net);
+//    ss_decrypt_client_batch(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(1 * e[i] * f[i] + e[i] * tri.gs[1] + f[i] * tri.us[1] + tri.zs[1]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 
 void secure_mul_client_batch_compressed(int as[], int bs[], int ab_s[], int m, const triplet_b &tri, NetAdapter *net) {
-    int *e = new int[m];
-    int *es = new int[m];
-    int *f = new int[m];
-    int *fs = new int[m];
+    int *e = new int[m * 2];
+    int *es = new int[m * 2];
+    auto f = e + m;
+    auto fs = es + m;
 
     for (int i = 0; i < m; i++) {
         es[i] = mod_bit(as[i] - tri.us[1]);
         fs[i] = mod_bit(bs[i] - tri.gs[1]);
     }
-    ss_decrypt_client_batch_compressed(e, es, m, net);
-    ss_decrypt_client_batch_compressed(f, fs, m, net);
+    ss_decrypt_client_batch_compressed(e, es, m * 2, net);
+//    ss_decrypt_client_batch_compressed(f, fs, m, net);
 
     for (int i = 0; i < m; i++) {
         ab_s[i] = mod_bit(1 * e[i] * f[i] + e[i] * tri.gs[1] + f[i] * tri.us[1] + tri.zs[1]);
     }
     delete[] e;
     delete[] es;
-    delete[] f;
-    delete[] fs;
 }
 
 void secure_mul_client_batch(mpz_class as[], mpz_class bs[], mpz_class ab_s[], int m, const triplet_b &tri,

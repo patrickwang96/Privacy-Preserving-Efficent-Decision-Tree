@@ -132,18 +132,24 @@ void carry_calculation_server_batch(int G_star[], int P_star[], int G1[], int P1
     delete[] pp;
 }
 
-void carry_calculation_server_batch_compressed(int G_star[], int P_star[], int G1[], int P1[], int G2[], int P2[], int m,
-                                    const triplet_b &tri_b, NetAdapter *net) {
-    int *gp = new int[m];
-    int *pp = new int[m];
-    secure_mul_server_batch_compressed(G2, P1, gp, m, tri_b, net);
-    secure_mul_server_batch_compressed(P1, P2, pp, m, tri_b, net);
+void
+carry_calculation_server_batch_compressed(int G_star[], int P_star[], int G1[], int P1[], int G2[], int P2[], int m,
+                                          const triplet_b &tri_b, NetAdapter *net) {
+    int *gp = new int[m * 2];
+    auto pp = gp + m;
+    auto b1 = new int[m * 2];
+    auto b2 = new int[m * 2];
+    memcpy(b1, G2, sizeof(int) * m);
+    memcpy(b1, P1, sizeof(int) * m);
+    memcpy(b2, P1, sizeof(int) * m);
+    memcpy(b2, P2, sizeof(int) * m);
+
+    secure_mul_server_batch_compressed(b1, b2, gp, m * 2, tri_b, net);
     for (int i = 0; i < m; i++) {
         G_star[i] = G1[i] + gp[i];
         P_star[i] = pp[i];
     }
     delete[] gp;
-    delete[] pp;
 }
 
 void secure_node_eval_with_look_ahead_carry_adder_server(mpz_class x[], mpz_class y[], int m, const triplet_z &tri_z,
@@ -364,9 +370,9 @@ void secure_inference_generation_server(int decision[], mpz_class value[], int d
     while (left_layer_count > 1) {
         for (int i = 0; i < left_layer_count; i++) {
             secure_mul_server_batch_compressed(all_nodes + i * 2 * 2 * last_layer_node_count,
-                                    all_nodes + (2 * i + 1) * 2 * last_layer_node_count,
-                                    all_nodes + i * 2 * 2 * last_layer_node_count,
-                                    last_layer_node_count * 2, tri_b, net);
+                                               all_nodes + (2 * i + 1) * 2 * last_layer_node_count,
+                                               all_nodes + i * 2 * 2 * last_layer_node_count,
+                                               last_layer_node_count * 2, tri_b, net);
         }
 
         left_layer_count /= 2;

@@ -23,12 +23,6 @@
 
 extern gmp_randclass gmp_prn;
 
-const int param_nd[5][2] = {{9,  8},
-                            {13, 3},
-                            {13, 13},
-                            {15, 4},
-                            {57, 17}};
-
 extern std::chrono::steady_clock::time_point start, end;
 #define CLOCK_START {start = std::chrono::steady_clock::now();}
 #define CLOCK_END {end = std::chrono::steady_clock::now();}
