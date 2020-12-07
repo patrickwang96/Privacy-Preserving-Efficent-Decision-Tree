@@ -4,7 +4,6 @@
 
 #include "secret_sharing_efficient_tools.h"
 
-using namespace osuCrypto;
 extern gmp_randclass gmp_prn;
 
 void ss_decrypt_server(int &plain, int share, NetAdapter *net) {
@@ -199,29 +198,6 @@ void secure_feature_index_sharing_client_batch(uint64_t s, std::vector<uint64_t>
     net->send(reinterpret_cast<unsigned char *>(i_origin_with_mask), sizeof(uint64_t) * index_range);
     delete[] i_origin_with_mask;
     delete[] i_primes;
-}
-
-void secure_feature_index_sharing_server_batch(uint64_t *i_origin, uint64_t feature_count, PRNG &prng,
-                                               std::vector<uint64_t> &feature_share,
-                                               NetAdapter *net) {
-    int index_range = feature_share.size();
-    uint64_t *i_primes = new uint64_t[index_range];
-    uint64_t *i_origin_with_mask = new uint64_t[index_range];
-    uint64_t *randoms = new uint64_t[index_range];
-    for (int i = 0; i < index_range; i++) {
-        randoms[i] = prng.get<uint64_t>();
-        i_primes[i] = feature_share[i] + randoms[i];
-    }
-    net->send(reinterpret_cast<unsigned char *> (i_primes), sizeof(uint64_t) * index_range);
-    net->recv(reinterpret_cast<unsigned char *> (i_origin_with_mask), sizeof(uint64_t) * index_range);
-
-    for (int i = 0; i < index_range; i++) {
-        i_origin[i] = i_origin_with_mask[i] - randoms[i];
-        i_origin[i] %= feature_count;
-    }
-    delete[] i_primes;
-    delete[] i_origin_with_mask;
-    delete[] randoms;
 }
 
 void ss_decrypt_client(int &plain, int share, NetAdapter *net) {

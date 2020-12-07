@@ -32,17 +32,7 @@ void secure_mul(mpz_class as[2], mpz_class bs[2], mpz_class ab_s[2], const tripl
     SS_DO(ab_s[i] = i * e * f + e * tri.gs[i] + f * tri.us[i] + tri.zs[i];
                   mod_2exp(ab_s[i], CONFIG_L);)
 }
-// ======= new
-//extern gmp_randclass gmp_prn;
-//#include "libOTe/Base/BaseOT.h"
-//#include "libOTe/TwoChooseOne/KosOtExtSender.h"
-//#include "libOTe/TwoChooseOne/KosOtExtReceiver.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtSender.h"
-//#include "libOTe/TwoChooseOne/IknpOtExtReceiver.h"
-//#include <cryptoTools/Common/Matrix.h>
-//#include <cryptoTools/Common/BitVector.h>
-//#include <cryptoTools/Network/Channel.h>
-//using namespace osuCrypto;
+
 void secure_feature_selection_with_one_node(const matrix_z p[2],
                                             const matrix_z feature_share[2],
                                             mpz_class selected_feature[2], int index) {

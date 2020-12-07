@@ -8,7 +8,6 @@
 #include "network.h"
 #include "secret_sharing.h"
 #include <vector>
-#include "cryptoTools/Crypto/PRNG.h"
 #include "decision_tree.h"
 #include "utils.h"
 #include <algorithm>
@@ -48,10 +47,6 @@ void
 secure_feature_index_sharing_client(uint64_t index, uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net);
 
 void secure_feature_index_sharing_client_batch(uint64_t s, std::vector<uint64_t> &feature_share, NetAdapter *net);
-
-void secure_feature_index_sharing_server_batch(uint64_t *i_origin, uint64_t feature_count, osuCrypto::PRNG &prng,
-                                               std::vector<uint64_t> &feature_share,
-                                               NetAdapter *net);
 
 void ss_decrypt_client(int &plain, int share, NetAdapter *net);
 

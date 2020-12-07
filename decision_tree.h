@@ -6,19 +6,12 @@
 #include "types.h"
 #include <vector>
 #include "network.h"
-#include <cryptoTools/Common/Defines.h>
-#include "libOTe/NChooseOne/Kkrt/KkrtNcoOtReceiver.h"
-#include "libOTe/NChooseOne/Kkrt/KkrtNcoOtSender.h"
 
 
 void secure_feature_selection_with_one_node(const matrix_z p[2], const matrix_z feature_share[2],
                                             mpz_class selected_feature[2], int index);
 
-void secure_feature_selection_with_one_node_client(std::vector<uint64_t>& p, std::vector<uint64_t>& feature_share, uint64_t &selected_feature,
-                                                   int index, NetAdapter *net, osuCrypto::KkrtNcoOtSender &sender, osuCrypto::KkrtNcoOtReceiver &receiver, osuCrypto::PRNG &prng, osuCrypto::Channel &chl);
 
-void secure_feature_selection_with_one_node_server(std::vector<uint64_t>& p, std::vector<uint64_t> &feature_share, uint64_t &selected_feature,
-                                                   int index, NetAdapter *net, osuCrypto::KkrtNcoOtSender &sender,osuCrypto::KkrtNcoOtReceiver &receiver, osuCrypto::PRNG &prng, osuCrypto::Channel &chl);
 
 void secure_node_eval_with_look_ahead_carry_adder(mpz_class x[2], mpz_class y[2], const triplet_z &tri_z,
                                                   const triplet_b &tri_b);
@@ -78,9 +71,9 @@ inline uint64_t mpz_to_u64(mpz_class m){
     return *static_cast<uint64_t*> (mpz_export(nullptr, &wordCount, 1, sizeof(uint64_t), 0, 0, m.get_mpz_t()));
 }
 
-inline uint64_t block_to_u64(osuCrypto::block m) {
-    return _mm_cvtsi128_si64x(m);
-
-}
+// inline uint64_t block_to_u64(osuCrypto::block m) {
+//     return _mm_cvtsi128_si64x(m);
+//
+// }
 
 #endif

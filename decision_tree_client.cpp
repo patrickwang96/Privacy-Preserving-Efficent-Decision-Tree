@@ -6,97 +6,13 @@
 #include <algorithm>
 #include <vector>
 
-#include <cryptoTools/Common/Defines.h>
-#include <cryptoTools/Network/Channel.h>
-#include <cryptoTools/Network/IOService.h>
-#include <cryptoTools/Common/Timer.h>
-#include <cryptoTools/Common/BitVector.h>
-#include <cryptoTools/Crypto/PRNG.h>
-#include "libOTe/NChooseOne/Kkrt/KkrtNcoOtSender.h"
-#include "libOTe/NChooseOne//Kkrt/KkrtNcoOtReceiver.h"
-#include "libOTe/Base/SimplestOT.h"
-
 #include "decision_tree.h"
 #include "secret_sharing.h"
 #include "utils.h"
 #include "network.h"
 #include "secret_sharing_efficient_tools.h"
 
-using namespace osuCrypto;
 extern gmp_randclass gmp_prn;
-
-
-void secure_feature_selection_with_one_node_client(std::vector<uint64_t> &p, std::vector<uint64_t> &feature_share,
-                                                   uint64_t &selected_feature, int index, NetAdapter *net,
-                                                   KkrtNcoOtSender &sender, KkrtNcoOtReceiver &receiver, PRNG &prng,
-                                                   Channel &chl) {
-
-    int feature_count = p.size();
-    int m = feature_share.size();
-    std::vector<uint64_t> p_prime;
-    uint64_t s, r;
-
-    s = prng.get<uint64_t>();
-    r = prng.get<uint64_t>();
-    p_prime.reserve(feature_count);
-
-    // 1)
-    for (int j = 0; j < feature_count; j++) {
-        static uint64_t j_star;
-        j_star = j + s;
-        j_star %= feature_count;
-        p_prime[j] = p[j_star] + r;
-    }
-
-    // 2,3,4)
-    secure_feature_index_sharing_client_batch(s, feature_share, net);
-
-    // 5)
-    // client C1 acts like a sender
-    Matrix<block> otMat(m, feature_count);
-    for (int j = 0; j < m; j++)
-        for (int i = 0; i < feature_count; i++) {
-            otMat[j][i] = toBlock(p_prime[i]);
-        }
-    sender.sendChosen(otMat, prng, chl);
-
-    // 6)
-    uint64_t random;
-
-    uint64_t *i_origin_primes = new uint64_t[m];
-    secure_feature_index_sharing_server_batch(i_origin_primes, feature_count, prng, feature_share, net);
-    std::vector<block> recvMsgs(m);
-    std::vector<uint64_t> choices(m);
-    for (int i = 0; i < m; i++) choices[i] = i_origin_primes[i];
-    receiver.receiveChosen(feature_count, recvMsgs, choices, prng, chl);
-
-    delete[] i_origin_primes;
-
-    std::vector<uint64_t> p_prime_0(m);
-    for (int i = 0; i < m; i++) {
-        p_prime_0[i] = block_to_u64(recvMsgs[i]);
-    }
-
-    // 7)
-    uint64_t random_prime;
-//    std::vector<uint64_t> p_stars(m);
-    uint64_t *p_stars = new uint64_t[m];
-    for (int i = 0; i < m; i++) {
-        random_prime = prng.get<uint64_t>();
-
-        p_stars[i] = p_prime_0[i] - r - random_prime;
-//        send_u64_net(p_stars[i], net);
-    }
-    net->send(reinterpret_cast<unsigned char *>(p_stars), sizeof(uint64_t) * m);
-
-
-    net->recv(reinterpret_cast<unsigned char *>(p_stars), sizeof(uint64_t) * m);
-    for (int i = 0; i < m; i++) {
-        p_stars[i] += p_prime_0[i] - r;
-    }
-
-//    std::cout << "done 1 round\n";
-}
 
 inline void
 carry_calculation(int G_star[2], int P_star[2], int G1[2], int P1[2], int G2[2], int P2[2], const triplet_b &tri_b) {
