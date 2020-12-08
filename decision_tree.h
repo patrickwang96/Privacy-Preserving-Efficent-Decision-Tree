@@ -49,7 +49,7 @@ void set_selection_index(matrix_z &sel_ind, int n);
 inline void get_mpz_net(mpz_class &m, NetAdapter *net) {
     static uint64_t i;
     net->recv(reinterpret_cast<unsigned char *>(&(i)), sizeof(i));
-    m = i;
+    // m = i;
 }
 
 inline void send_mpz_net(const mpz_class m, NetAdapter *net) {
