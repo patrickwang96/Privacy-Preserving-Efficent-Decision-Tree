@@ -1,5 +1,9 @@
 # Privacy-Preserving-Efficent-Decision-Tree
 
+## Network setup
+
+IP address is hard coded into network.h file. Default is localhost. Please change the ip address before compilation. 
+
 ## Setup Guide
 
 ```
